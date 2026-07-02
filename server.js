@@ -14,8 +14,14 @@ const { NWCClient } = require("@getalby/sdk/nwc");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const INVOICE_EXPIRY_SEC = 600;
+
+function normalizeToken(value) {
+  if (!value) return "";
+  return value.trim().replace(/^["']|["']$/g, "");
+}
+
 const NWC_URL = process.env.NWC_URL;
-const ALBY_TOKEN = process.env.ALBY_API_TOKEN;
+const ALBY_TOKEN = normalizeToken(process.env.ALBY_API_TOKEN);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
@@ -82,18 +88,29 @@ function getNwcUrl() {
 
 function hasCredentials() {
   const nwcOk = Boolean(getNwcUrl());
-  const tokenOk = ALBY_TOKEN && ALBY_TOKEN !== "your_token_here";
-  return nwcOk || tokenOk;
+  const token = getAlbyToken();
+  return nwcOk || Boolean(token);
+}
+
+function getAlbyToken() {
+  const token = normalizeToken(ALBY_TOKEN);
+  if (!token || token === "your_token_here") return "";
+  if (token.startsWith("nostr+walletconnect://")) return "";
+  return token;
 }
 
 function requireCredentials(res) {
   if (!hasCredentials()) {
     const parsed = parseNwcUrl(NWC_URL || "");
-    res.status(500).json({
-      error:
-        parsed.error ||
-        "NWC_URL missing. Alby Hub ? Connections ? copy full nostr+walletconnect:// string into Railway Variables.",
-    });
+    const token = normalizeToken(ALBY_TOKEN || "");
+    let error = parsed.error || "Add NWC_URL or ALBY_API_TOKEN in Railway Variables.";
+
+    if (token.startsWith("nostr+walletconnect://")) {
+      error =
+        "ALBY_API_TOKEN mein NWC string mat dalo. Woh NWC_URL mein jati hai. ALBY_API_TOKEN ke liye getalby.com/developer se access token lo.";
+    }
+
+    res.status(500).json({ error });
     return false;
   }
   return true;
@@ -108,10 +125,17 @@ function createNwcClient() {
 }
 
 async function albyFetch(endpoint, options = {}) {
+  const token = getAlbyToken();
+  if (!token) {
+    throw new Error(
+      "Invalid ALBY_API_TOKEN. Use access token from getalby.com/developer  not NWC string."
+    );
+  }
+
   const response = await fetch(`https://api.getalby.com${endpoint}`, {
     ...options,
     headers: {
-      Authorization: `Bearer ${ALBY_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
@@ -124,12 +148,33 @@ async function albyFetch(endpoint, options = {}) {
   return data;
 }
 
-app.get("/api/health", (_req, res) => {
+app.get("/api/health", async (_req, res) => {
   const nwc = parseNwcUrl(NWC_URL || "");
+  const token = getAlbyToken();
+  let tokenOk = false;
+  let tokenError = null;
+
+  if (token) {
+    try {
+      const response = await fetch("https://api.getalby.com/balance", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      tokenOk = response.ok;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        tokenError = data.error || data.message || "invalid access token";
+      }
+    } catch (err) {
+      tokenError = err.message;
+    }
+  }
+
   res.json({
-    ok: nwc.valid || Boolean(ALBY_TOKEN && ALBY_TOKEN !== "your_token_here"),
+    ok: nwc.valid || tokenOk,
     nwc: nwc.valid,
     nwcError: nwc.valid ? null : nwc.error,
+    token: tokenOk,
+    tokenError,
   });
 });
 
