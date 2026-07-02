@@ -20,6 +20,10 @@ const ALBY_TOKEN = process.env.ALBY_API_TOKEN;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+app.get("/favicon.ico", (_req, res) => {
+  res.redirect(301, "/favicon.svg");
+});
+
 function hasCredentials() {
   const nwcOk = NWC_URL && !NWC_URL.includes("paste_here");
   const tokenOk = ALBY_TOKEN && ALBY_TOKEN !== "your_token_here";
