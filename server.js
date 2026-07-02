@@ -24,17 +24,75 @@ app.get("/favicon.ico", (_req, res) => {
   res.redirect(301, "/favicon.svg");
 });
 
+function normalizeNwcUrl(url) {
+  if (!url) return "";
+  return url.trim().replace(/^["']|["']$/g, "");
+}
+
+function parseNwcUrl(url) {
+  const cleaned = normalizeNwcUrl(url);
+  if (!cleaned) return { valid: false, error: "NWC_URL is empty" };
+  if (cleaned.includes("paste_here")) {
+    return { valid: false, error: "NWC_URL still has placeholder text" };
+  }
+  if (!cleaned.startsWith("nostr+walletconnect://")) {
+    return {
+      valid: false,
+      error: "NWC_URL must start with nostr+walletconnect://",
+    };
+  }
+
+  const query = cleaned.split("?")[1];
+  if (!query) {
+    return { valid: false, error: "NWC_URL is incomplete (missing ?relay=...&secret=...)" };
+  }
+
+  const params = new URLSearchParams(query);
+  const relays = params.getAll("relay");
+  const secret = params.get("secret");
+
+  if (!secret) {
+    return {
+      valid: false,
+      error:
+        "NWC_URL missing secret. Railway may have cut the URL at &. Paste the FULL string as one variable.",
+    };
+  }
+
+  if (relays.length === 0) {
+    return {
+      valid: false,
+      error: "NWC_URL missing relay. Paste the complete connection secret from Alby Hub.",
+    };
+  }
+
+  for (const relay of relays) {
+    if (!relay.startsWith("wss://")) {
+      return { valid: false, error: `Invalid relay URL: ${relay}` };
+    }
+  }
+
+  return { valid: true, cleaned };
+}
+
+function getNwcUrl() {
+  const parsed = parseNwcUrl(NWC_URL);
+  return parsed.valid ? parsed.cleaned : null;
+}
+
 function hasCredentials() {
-  const nwcOk = NWC_URL && !NWC_URL.includes("paste_here");
+  const nwcOk = Boolean(getNwcUrl());
   const tokenOk = ALBY_TOKEN && ALBY_TOKEN !== "your_token_here";
   return nwcOk || tokenOk;
 }
 
 function requireCredentials(res) {
   if (!hasCredentials()) {
+    const parsed = parseNwcUrl(NWC_URL || "");
     res.status(500).json({
       error:
-        "NWC_URL missing. Alby Hub ? Connections ? New Connection ? copy full nostr+walletconnect:// string into .env",
+        parsed.error ||
+        "NWC_URL missing. Alby Hub ? Connections ? copy full nostr+walletconnect:// string into Railway Variables.",
     });
     return false;
   }
@@ -42,7 +100,11 @@ function requireCredentials(res) {
 }
 
 function createNwcClient() {
-  return new NWCClient({ nostrWalletConnectUrl: NWC_URL });
+  const url = getNwcUrl();
+  if (!url) {
+    throw new Error(parseNwcUrl(NWC_URL || "").error || "Invalid NWC_URL");
+  }
+  return new NWCClient({ nostrWalletConnectUrl: url });
 }
 
 async function albyFetch(endpoint, options = {}) {
@@ -61,6 +123,15 @@ async function albyFetch(endpoint, options = {}) {
   }
   return data;
 }
+
+app.get("/api/health", (_req, res) => {
+  const nwc = parseNwcUrl(NWC_URL || "");
+  res.json({
+    ok: nwc.valid || Boolean(ALBY_TOKEN && ALBY_TOKEN !== "your_token_here"),
+    nwc: nwc.valid,
+    nwcError: nwc.valid ? null : nwc.error,
+  });
+});
 
 app.get("/api/price", async (_req, res) => {
   try {
@@ -96,7 +167,7 @@ app.post("/api/invoice", async (req, res) => {
     let paymentRequest;
     let paymentHash;
 
-    if (NWC_URL && !NWC_URL.includes("paste_here")) {
+    if (getNwcUrl()) {
       const client = createNwcClient();
       try {
         const result = await client.makeInvoice({
@@ -148,7 +219,7 @@ app.get("/api/invoice/:hash/status", async (req, res) => {
   if (!requireCredentials(res)) return;
 
   try {
-    if (NWC_URL && !NWC_URL.includes("paste_here")) {
+    if (getNwcUrl()) {
       const client = createNwcClient();
       try {
         const result = await client.lookupInvoice({ payment_hash: req.params.hash });
@@ -176,7 +247,12 @@ app.get("/api/invoice/:hash/status", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Lightning Pay running ? http://localhost:${PORT}`);
-  if (!hasCredentials()) {
-    console.log("?  Add NWC_URL to .env (Alby Hub ? Connections ? New Connection)");
+  const nwc = parseNwcUrl(NWC_URL || "");
+  if (nwc.valid) {
+    console.log("? NWC_URL configured");
+  } else if (NWC_URL) {
+    console.log("? NWC_URL error:", nwc.error);
+  } else {
+    console.log("? Add NWC_URL to environment variables");
   }
 });
