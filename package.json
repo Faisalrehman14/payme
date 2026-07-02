@@ -1,0 +1,17 @@
+{
+  "name": "lightning-pay",
+  "version": "1.0.0",
+  "description": "Lightning payment checkout page",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@getalby/sdk": "^8.0.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "qrcode": "^1.5.4",
+    "websocket-polyfill": "^0.0.3"
+  }
+}

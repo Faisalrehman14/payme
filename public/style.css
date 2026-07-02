@@ -1,0 +1,411 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: #e8e8e8;
+  color: #111;
+  overscroll-behavior: none;
+}
+
+.page {
+  min-height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.phone {
+  width: 100%;
+  max-width: 390px;
+  min-height: 680px;
+  max-height: 92dvh;
+  background: #fff;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ── Top dark section ── */
+.screen-top {
+  background: #000;
+  color: #fff;
+  padding: 20px 20px 24px;
+  flex-shrink: 0;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.merchant {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.merchant-icon {
+  width: 28px;
+  height: 28px;
+  background: #00d632;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.merchant-name {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.instant-badge {
+  font-size: 0.75rem;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.amount-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.amount-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: #222;
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.amount-btn:active {
+  background: #333;
+}
+
+.amount-display {
+  font-size: 3.5rem;
+  font-weight: 700;
+  letter-spacing: -1px;
+  min-width: 120px;
+  text-align: center;
+}
+
+.quick-amounts {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  background: #222;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.chip:active,
+.chip.active {
+  background: #333;
+  outline: 1px solid #555;
+}
+
+/* ── Bottom white section ── */
+.screen-bottom {
+  flex: 1;
+  background: #fff;
+  padding: 16px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  flex: 1;
+  margin-bottom: 12px;
+}
+
+.keypad button {
+  border: none;
+  border-radius: 14px;
+  background: #f0f0f0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: #111;
+  cursor: pointer;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.keypad button:active {
+  background: #ddd;
+}
+
+.key-back {
+  font-size: 1.25rem !important;
+}
+
+.error {
+  color: #e53935;
+  font-size: 0.8rem;
+  text-align: center;
+  min-height: 18px;
+  margin-bottom: 8px;
+}
+
+.btn-pay {
+  width: 100%;
+  padding: 18px;
+  border: none;
+  border-radius: 14px;
+  background: #00d632;
+  color: #000;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn-pay:active {
+  background: #00b82b;
+}
+
+.btn-pay:disabled {
+  opacity: 0.5;
+}
+
+.footer-note {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.footer-icon {
+  color: #00d632;
+}
+
+/* ── Invoice screen ── */
+.invoice-top {
+  text-align: center;
+  padding-bottom: 16px;
+}
+
+.back-btn {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 8px;
+}
+
+#invoiceScreen .screen-top {
+  position: relative;
+}
+
+.invoice-amount {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-top: 24px;
+}
+
+.invoice-sats {
+  font-size: 0.85rem;
+  color: #888;
+  margin-top: 4px;
+}
+
+.expiry-timer {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: #ffd700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.expiry-timer.urgent {
+  color: #ff5252;
+  animation: blink 1s step-end infinite;
+}
+
+.expiry-timer.expired {
+  color: #ff5252;
+  animation: none;
+}
+
+@keyframes blink {
+  50% { opacity: 0.5; }
+}
+
+.invoice-bottom.expired .qr-wrap {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.invoice-bottom.expired .btn-cashapp {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.status.expired {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.invoice-bottom {
+  align-items: center;
+  overflow-y: auto;
+}
+
+.qr-wrap {
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.qr-wrap img {
+  display: block;
+  width: 200px;
+  height: 200px;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.status.waiting {
+  background: #fff8e1;
+  color: #f57f17;
+}
+
+.status.paid {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.5s infinite;
+}
+
+.status.paid .dot {
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.btn-cashapp {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 14px;
+  background: #00d632;
+  color: #000;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-cashapp:active {
+  background: #00b82b;
+}
+
+.pay-hint {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: #888;
+  text-align: center;
+}
+
+/* Full screen on small phones */
+@media (max-width: 420px) {
+  .page {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .phone {
+    max-width: 100%;
+    min-height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .amount-display {
+    font-size: 3rem;
+  }
+}

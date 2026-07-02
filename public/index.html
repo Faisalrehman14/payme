@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Lightning Pay</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="phone" id="phone">
+
+      <!-- Amount entry screen -->
+      <div class="screen" id="payScreen">
+        <div class="screen-top">
+          <div class="top-bar">
+            <div class="merchant">
+              <span class="merchant-icon">⚡</span>
+              <span class="merchant-name">Lightning Pay</span>
+            </div>
+            <div class="instant-badge">⚡ Instant</div>
+          </div>
+
+          <div class="amount-row">
+            <button class="amount-btn" id="minusBtn" type="button" aria-label="Decrease">−</button>
+            <div class="amount-display" id="amountDisplay">$0</div>
+            <button class="amount-btn" id="plusBtn" type="button" aria-label="Increase">+</button>
+          </div>
+
+          <div class="quick-amounts">
+            <button class="chip" data-amount="10" type="button">$10</button>
+            <button class="chip" data-amount="20" type="button">$20</button>
+            <button class="chip" data-amount="50" type="button">$50</button>
+            <button class="chip" data-amount="100" type="button">$100</button>
+          </div>
+        </div>
+
+        <div class="screen-bottom">
+          <div class="keypad" id="keypad">
+            <button type="button" data-key="1">1</button>
+            <button type="button" data-key="2">2</button>
+            <button type="button" data-key="3">3</button>
+            <button type="button" data-key="4">4</button>
+            <button type="button" data-key="5">5</button>
+            <button type="button" data-key="6">6</button>
+            <button type="button" data-key="7">7</button>
+            <button type="button" data-key="8">8</button>
+            <button type="button" data-key="9">9</button>
+            <button type="button" data-key=".">.</button>
+            <button type="button" data-key="0">0</button>
+            <button type="button" data-key="back" class="key-back" aria-label="Backspace">⌫</button>
+          </div>
+
+          <p class="error" id="error"></p>
+          <button class="btn-pay" id="payBtn" type="button">PAY</button>
+
+          <p class="footer-note">
+            <span class="footer-icon">⚡</span>
+            Powered by Bitcoin Lightning
+          </p>
+        </div>
+      </div>
+
+      <!-- Invoice / Cash App screen -->
+      <div class="screen hidden" id="invoiceScreen">
+        <div class="screen-top invoice-top">
+          <button class="back-btn" id="backBtn" type="button">← Back</button>
+          <div class="invoice-amount" id="displayAmount">$0.00</div>
+          <div class="invoice-sats" id="displaySats"></div>
+          <div class="expiry-timer" id="expiryTimer">Expires in 10:00</div>
+        </div>
+
+        <div class="screen-bottom invoice-bottom" id="invoiceBottom">
+          <div class="qr-wrap">
+            <img id="qrCode" alt="Lightning QR code" />
+          </div>
+
+          <div class="status waiting" id="status">
+            <span class="dot"></span>
+            Waiting for payment...
+          </div>
+
+          <button class="btn-cashapp" id="cashAppBtn" type="button">
+            Open Cash App & Pay
+          </button>
+          <p class="pay-hint">Pay with USD balance in Cash App</p>
+
+          <textarea id="invoiceText" class="hidden" readonly></textarea>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
