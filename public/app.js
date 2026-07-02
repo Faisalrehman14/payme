@@ -14,6 +14,7 @@ const qrCode = document.getElementById("qrCode");
 const statusEl = document.getElementById("status");
 const invoiceText = document.getElementById("invoiceText");
 const cashAppBtn = document.getElementById("cashAppBtn");
+const copyInvoiceBtn = document.getElementById("copyInvoiceBtn");
 const expiryTimer = document.getElementById("expiryTimer");
 const invoiceBottom = document.getElementById("invoiceBottom");
 
@@ -23,8 +24,19 @@ let expiryTimerId = null;
 let expiresAt = 0;
 const INVOICE_EXPIRY_SEC = 600;
 
-function getCashAppUrl(invoice) {
-  return `https://cash.app/launch/lightning/${encodeURIComponent(invoice)}`;
+function getLightningUrl(invoice) {
+  const bolt11 = invoice.replace(/^lightning:/i, "");
+  return `lightning:${bolt11}`;
+}
+
+function openInCashApp(invoice) {
+  const uri = getLightningUrl(invoice);
+  const link = document.createElement("a");
+  link.href = uri;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function isMobile() {
@@ -172,8 +184,7 @@ function showPayScreen() {
 }
 
 function openCashApp(invoice) {
-  const url = getCashAppUrl(invoice);
-  window.location.href = url;
+  openInCashApp(invoice);
 }
 
 async function createInvoice() {
@@ -268,8 +279,17 @@ backBtn.addEventListener("click", showPayScreen);
 
 cashAppBtn.addEventListener("click", () => {
   if (invoiceText.value && !invoiceBottom.classList.contains("expired")) {
-    openCashApp(invoiceText.value);
+    openInCashApp(invoiceText.value);
   }
+});
+
+copyInvoiceBtn.addEventListener("click", async () => {
+  if (!invoiceText.value) return;
+  await navigator.clipboard.writeText(invoiceText.value);
+  copyInvoiceBtn.textContent = "Copied!";
+  setTimeout(() => {
+    copyInvoiceBtn.textContent = "Copy Invoice";
+  }, 2000);
 });
 
 renderAmount();
