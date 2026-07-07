@@ -37,6 +37,7 @@ const infoTheme = document.getElementById("infoTheme");
 const infoCommission = document.getElementById("infoCommission");
 
 const PREF_KEY = "globapay_prefs";
+const REFRESH_MS = 5000;
 
 let refreshTimer = null;
 let dashboardData = null;
@@ -395,6 +396,22 @@ async function loadDashboard() {
   initMonthFilters();
 }
 
+function getCurrentView() {
+  const active = document.querySelector(".nav-item.active");
+  return active?.dataset.view || "dashboard";
+}
+
+async function refreshAll() {
+  await loadDashboard();
+  const view = getCurrentView();
+  if (view === "monthly") await loadMonthly();
+}
+
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(refreshAll, REFRESH_MS);
+}
+
 async function copyPayLink() {
   if (!dashboardData?.payLink) return;
   await navigator.clipboard.writeText(dashboardData.payLink);
@@ -427,8 +444,8 @@ async function boot() {
     const me = await api("/api/auth/me");
     if (me.user.role === "office") {
       showApp();
-      await loadDashboard();
-      refreshTimer = setInterval(loadDashboard, 15000);
+      await refreshAll();
+      startAutoRefresh();
       return;
     }
     showLogin();
@@ -455,8 +472,8 @@ loginBtn.addEventListener("click", async () => {
     }
     if (data.user.role !== "office") throw new Error("Office account required");
     showApp();
-    await loadDashboard();
-    refreshTimer = setInterval(loadDashboard, 15000);
+    await refreshAll();
+    startAutoRefresh();
   } catch (err) {
     showLogin();
     loginError.textContent = err.message;
@@ -563,4 +580,11 @@ loginUser.addEventListener("keydown", (e) => {
 });
 
 applyTheme(loadPrefs().theme);
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && appSection && !appSection.classList.contains("hidden")) {
+    refreshAll();
+  }
+});
+
 boot();

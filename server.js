@@ -304,6 +304,37 @@ async function lookupInvoiceSettled(paymentHash) {
   };
 }
 
+async function syncPaymentRecord(payment) {
+  if (!payment || payment.status !== "pending") return payment;
+
+  if (payment.expiresAt && Date.now() > Date.parse(payment.expiresAt)) {
+    return db.updatePaymentByHash(payment.paymentHash, { status: "expired" });
+  }
+
+  if (!hasCredentials()) return payment;
+
+  try {
+    const result = await lookupInvoiceSettled(payment.paymentHash);
+    const settledAt = result.settledAt || (result.settled ? new Date().toISOString() : null);
+    if (result.settled) {
+      return db.updatePaymentByHash(payment.paymentHash, {
+        status: "paid",
+        settledAt,
+      });
+    }
+  } catch {
+    // Alby Hub may be offline  keep pending
+  }
+
+  return payment;
+}
+
+async function syncOfficePayments(officeId) {
+  const payments = await db.listPaymentsForOffice(officeId, 200);
+  const pending = payments.filter((p) => p.status === "pending");
+  await Promise.all(pending.map((p) => syncPaymentRecord(p)));
+}
+
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body || {};
@@ -484,6 +515,8 @@ app.get("/api/dashboard/summary", requireAuth, requireOffice, async (req, res) =
     const office = await db.getOfficeById(req.user.officeId);
     if (!office) return res.status(404).json({ error: "Office not found" });
 
+    await syncOfficePayments(office.id);
+
     res.json({
       user: { username: req.user.username },
       office: officePublicView(office),
@@ -497,6 +530,7 @@ app.get("/api/dashboard/summary", requireAuth, requireOffice, async (req, res) =
 
 app.get("/api/dashboard/payments", requireAuth, requireOffice, async (req, res) => {
   try {
+    await syncOfficePayments(req.user.officeId);
     const offices = await db.listOffices();
     const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
     const payments = (await db.listPaymentsForOffice(req.user.officeId)).map((p) =>
@@ -510,6 +544,7 @@ app.get("/api/dashboard/payments", requireAuth, requireOffice, async (req, res) 
 
 app.get("/api/dashboard/monthly", requireAuth, requireOffice, async (req, res) => {
   try {
+    await syncOfficePayments(req.user.officeId);
     const now = new Date();
     const month = Number(req.query.month) || now.getMonth() + 1;
     const year = Number(req.query.year) || now.getFullYear();
@@ -698,14 +733,7 @@ app.get("/api/invoice/:hash/status", async (req, res) => {
 
     const stored = await db.getPaymentByHash(req.params.hash);
     if (stored) {
-      if (settled && stored.status !== "paid") {
-        await db.updatePaymentByHash(req.params.hash, {
-          status: "paid",
-          settledAt,
-        });
-      } else if (!settled && stored.expiresAt && Date.now() > Date.parse(stored.expiresAt)) {
-        await db.updatePaymentByHash(req.params.hash, { status: "expired" });
-      }
+      await syncPaymentRecord(stored);
     }
 
     res.json({
