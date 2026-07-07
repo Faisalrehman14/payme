@@ -52,10 +52,17 @@ router.get("/overview", requireAuth, requireAdmin, async (_req, res) => {
 router.get("/offices", requireAuth, requireAdmin, async (req, res) => {
   try {
     const offices = await db.listOffices();
+    const staffByOffice = {};
+    for (const user of (await db.listUsers()).filter((u) => u.role === "office")) {
+      if (!user.officeId) continue;
+      if (!staffByOffice[user.officeId]) staffByOffice[user.officeId] = [];
+      staffByOffice[user.officeId].push({ id: user.id, username: user.username });
+    }
     const result = await Promise.all(
       offices.map(async (office) => ({
         ...officePublicView(office),
         payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
+        staff: staffByOffice[office.id] || [],
         stats: await db.getOfficeStats(office.id),
       }))
     );
@@ -101,6 +108,22 @@ router.patch("/offices/:id/active", requireAuth, requireAdmin, async (req, res) 
       details: { name: office.name, slug: office.slug },
     });
     res.json({ office: officePublicView(office) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete("/offices/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const office = await db.getOfficeById(req.params.id);
+    if (!office) return res.status(404).json({ error: "Office not found" });
+    await db.deleteOffice(req.params.id);
+    await logAudit(req, "office.delete", {
+      targetType: "office",
+      targetId: office.id,
+      details: { name: office.name, slug: office.slug },
+    });
+    res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

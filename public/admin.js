@@ -40,7 +40,10 @@ const siteSettingsUpdated = document.getElementById("siteSettingsUpdated");
 
 let refreshTimer = null;
 let allPayments = [];
+let allUsers = [];
+let allOffices = [];
 let auditLogs = [];
+let adminInitialLoad = false;
 const REFRESH_MS = 10000;
 
 function skeletonRows(cols, rows = 4) {
@@ -54,7 +57,7 @@ function setLoading() {
     .map(() => `<div class="stat-card skeleton-card"><div class="skeleton"></div></div>`)
     .join("");
   recentPaymentsTable.innerHTML = skeletonRows(5);
-  officesTable.innerHTML = skeletonRows(6);
+  officesTable.innerHTML = skeletonRows(8);
   usersTable.innerHTML = skeletonRows(5);
   paymentsTable.innerHTML = skeletonRows(5);
   if (auditTable) auditTable.innerHTML = skeletonRows(5);
@@ -106,6 +109,7 @@ function setView(view) {
 function showLogin() {
   loginSection.classList.remove("hidden");
   appSection.classList.add("hidden");
+  adminInitialLoad = false;
   stopRefresh();
 }
 
@@ -123,7 +127,12 @@ function stopRefresh() {
 
 function startRefresh() {
   stopRefresh();
-  refreshTimer = setInterval(loadAll, REFRESH_MS);
+  refreshTimer = setInterval(() => loadAll({ showLoading: false }), REFRESH_MS);
+}
+
+function renderStaffList(staff) {
+  if (!staff?.length) return `<span class="sub">No staff</span>`;
+  return staff.map((s) => `<span class="staff-tag">${s.username}</span>`).join(" ");
 }
 
 function renderOverview(overview) {
@@ -201,6 +210,7 @@ function renderOffices(offices) {
       (o) => `
     <tr>
       <td><strong>${o.name}</strong><br><span class="sub">/${o.slug}</span></td>
+      <td>${renderStaffList(o.staff)}</td>
       <td>
         <div class="inline-actions">
           ${officeStatusBadge(o.active !== false)}
@@ -213,9 +223,12 @@ function renderOffices(offices) {
       <td>${o.stats.paidCount}</td>
       <td>${o.stats.pendingCount}</td>
       <td>${money(o.stats.totalUsd)}</td>
+      <td>
+        <button class="btn btn-danger btn-sm" type="button" data-delete-office="${o.id}" data-office-name="${o.name}">Delete</button>
+      </td>
     </tr>`
     )
-    .join("") || `<tr><td colspan="6">No offices yet — create your first office above.</td></tr>`;
+    .join("") || `<tr><td colspan="8">No offices yet — create your first office above.</td></tr>`;
 }
 
 function renderUsers(users) {
@@ -262,8 +275,10 @@ function renderPayments(payments) {
     .join("") || `<tr><td colspan="5">No payments found</td></tr>`;
 }
 
-async function loadAll() {
-  setLoading();
+async function loadAll({ showLoading = false } = {}) {
+  if (showLoading || !adminInitialLoad) {
+    setLoading();
+  }
   const [overview, officesData, usersData, paymentsData, auditData, settingsData] = await Promise.all([
     api("/api/admin/overview"),
     api("/api/admin/offices"),
@@ -274,13 +289,16 @@ async function loadAll() {
   ]);
 
   allPayments = paymentsData.payments;
+  allUsers = usersData.users;
+  allOffices = officesData.offices;
   auditLogs = auditData.logs || [];
   renderOverview(overview);
-  renderOffices(officesData.offices);
-  renderUsers(usersData.users);
+  renderOffices(allOffices);
+  renderUsers(allUsers);
   renderPayments(allPayments);
   renderAudit(auditLogs);
   renderSiteSettings(settingsData.settings);
+  adminInitialLoad = true;
 }
 
 async function boot() {
@@ -293,7 +311,7 @@ async function boot() {
     adminName.textContent = me.user.username;
     adminAvatar.textContent = me.user.username.charAt(0).toUpperCase();
     showApp();
-    await loadAll();
+    await loadAll({ showLoading: true });
     startRefresh();
   } catch {
     showLogin();
@@ -317,7 +335,7 @@ loginBtn.addEventListener("click", async () => {
     adminName.textContent = data.user.username;
     adminAvatar.textContent = data.user.username.charAt(0).toUpperCase();
     showApp();
-    await loadAll();
+    await loadAll({ showLoading: true });
     startRefresh();
   } catch (err) {
     loginError.textContent = err.message;
@@ -336,7 +354,7 @@ logoutBtn.addEventListener("click", async () => {
   showLogin();
 });
 
-refreshBtn.addEventListener("click", loadAll);
+refreshBtn.addEventListener("click", () => loadAll({ showLoading: true }));
 paymentSearch?.addEventListener("input", () => renderPayments(allPayments));
 
 document.querySelectorAll(".admin-nav .nav-item").forEach((btn) => {
@@ -357,7 +375,7 @@ createOfficeBtn.addEventListener("click", async () => {
     officeName.value = "";
     officeSlug.value = "";
     officeSuccess.textContent = "Office created successfully";
-    await loadAll();
+    await loadAll({ showLoading: false });
   } catch (err) {
     officeError.textContent = err.message;
   }
@@ -384,7 +402,7 @@ createUserBtn.addEventListener("click", async () => {
     userPass.value = "";
     const linkNote = data.user.payLink ? ` Payment link: ${data.user.payLink}` : "";
     userSuccess.textContent = `User created for ${data.user.officeName || "office"}.${linkNote}`;
-    await loadAll();
+    await loadAll({ showLoading: false });
     if (officeId) userOffice.value = officeId;
   } catch (err) {
     userError.textContent = err.message;
@@ -403,11 +421,33 @@ officesTable.addEventListener("click", async (e) => {
         method: "PATCH",
         body: JSON.stringify({ active: !currentlyActive }),
       });
-      await loadAll();
+      await loadAll({ showLoading: false });
     } catch (err) {
       alert(err.message);
     }
     return;
+  }
+
+  const deleteOfficeBtn = e.target.closest("[data-delete-office]");
+  if (deleteOfficeBtn) {
+    const officeId = deleteOfficeBtn.getAttribute("data-delete-office");
+    const officeName = deleteOfficeBtn.getAttribute("data-office-name") || "this office";
+    const office = allOffices.find((o) => o.id === officeId);
+    const staffNote = office?.staff?.length
+      ? ` This will also remove ${office.staff.length} staff account(s) and all payment history.`
+      : " This will remove the office and all its payment history.";
+    if (!confirm(`Delete "${officeName}"?${staffNote}`)) return;
+    try {
+      await api(`/api/admin/offices/${officeId}`, { method: "DELETE" });
+      allOffices = allOffices.filter((o) => o.id !== officeId);
+      allUsers = allUsers.filter((u) => u.officeId !== officeId);
+      renderOffices(allOffices);
+      renderUsers(allUsers);
+      officeSuccess.textContent = `Office "${officeName}" deleted.`;
+      await loadAll({ showLoading: false });
+    } catch (err) {
+      alert(err.message);
+    }
   }
 });
 
@@ -441,8 +481,15 @@ usersTable.addEventListener("click", async (e) => {
     if (!confirm(`Delete user "${deleteBtn.dataset.user}"? This cannot be undone.`)) return;
     try {
       await api(`/api/admin/users/${userId}`, { method: "DELETE" });
+      allUsers = allUsers.filter((u) => u.id !== userId);
+      allOffices = allOffices.map((o) => ({
+        ...o,
+        staff: (o.staff || []).filter((s) => s.id !== userId),
+      }));
+      renderUsers(allUsers);
+      renderOffices(allOffices);
       userSuccess.textContent = `User "${deleteBtn.dataset.user}" deleted.`;
-      await loadAll();
+      await loadAll({ showLoading: false });
     } catch (err) {
       alert(err.message);
     }
@@ -450,7 +497,9 @@ usersTable.addEventListener("click", async (e) => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && !appSection.classList.contains("hidden")) loadAll();
+  if (!document.hidden && !appSection.classList.contains("hidden")) {
+    loadAll({ showLoading: false });
+  }
 });
 
 saveSiteSettingsBtn?.addEventListener("click", async () => {

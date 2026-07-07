@@ -689,6 +689,33 @@ async function listAuditLogs(limit = 100) {
   return rows.map(mapAudit);
 }
 
+async function deleteOffice(officeId) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: users } = await client.query(
+      "SELECT id FROM users WHERE office_id = $1",
+      [officeId]
+    );
+    for (const user of users) {
+      await client.query("DELETE FROM sessions WHERE user_id = $1", [user.id]);
+    }
+    await client.query("DELETE FROM users WHERE office_id = $1", [officeId]);
+    const { rowCount } = await client.query("DELETE FROM offices WHERE id = $1", [officeId]);
+    if (!rowCount) throw new Error("Office not found");
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+  return true;
+}
+
 async function getOfficeStats(officeId) {
   const { rows } = await pool.query(
     `SELECT
@@ -724,6 +751,7 @@ module.exports = {
   getOfficeById,
   createOffice,
   updateOfficeActive,
+  deleteOffice,
   getDashboardStats,
   getMonthlyStats,
   createOfficeUser,

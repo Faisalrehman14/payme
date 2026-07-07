@@ -448,6 +448,19 @@ async function listAuditLogs(limit = 100) {
   return (db.auditLogs || []).slice(0, limit);
 }
 
+async function deleteOffice(officeId) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  updateDb((d) => {
+    const userIds = d.users.filter((u) => u.officeId === officeId).map((u) => u.id);
+    d.sessions = d.sessions.filter((s) => !userIds.includes(s.userId));
+    d.users = d.users.filter((u) => u.officeId !== officeId);
+    d.payments = d.payments.filter((p) => p.officeId !== officeId);
+    d.offices = d.offices.filter((o) => o.id !== officeId);
+  });
+  return true;
+}
+
 async function getOfficeStats(officeId) {
   const payments = await listPaymentsForOffice(officeId, 1000);
   const paid = payments.filter((p) => p.status === "paid");
@@ -474,6 +487,7 @@ module.exports = {
   getOfficeById,
   createOffice,
   updateOfficeActive,
+  deleteOffice,
   getDashboardStats,
   getMonthlyStats,
   createOfficeUser,
