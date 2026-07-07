@@ -527,7 +527,7 @@ app.post("/api/invoice", async (req, res) => {
     if (!btcPrice) throw new Error("Could not fetch BTC price");
 
     const sats = Math.max(1, Math.round((usd / btcPrice) * 100_000_000));
-    const officeLabel = office ? office.name : "Lightning Pay";
+    const officeLabel = office ? office.name : "Globa Pay";
     const description = memo || `${officeLabel} ù $${usd.toFixed(2)}`;
 
     let paymentRequest;
@@ -639,7 +639,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`Lightning Pay running ? http://localhost:${PORT}`);
+    console.log(`Globa Pay running ? http://localhost:${PORT}`);
     console.log(`Admin portal ? http://localhost:${PORT}/admin`);
     console.log(`Office dashboard ? http://localhost:${PORT}/dashboard`);
     const nwc = parseNwcUrl(NWC_URL || "");
@@ -653,7 +653,7 @@ async function start() {
     if (process.env.DATABASE_URL) {
       console.log("? DATABASE_URL configured (PostgreSQL)");
     } else {
-      console.log("? Using JSON storage ó add DATABASE_URL on Railway");
+      console.log("? Using JSON storage ù add DATABASE_URL on Railway");
     }
   });
 }

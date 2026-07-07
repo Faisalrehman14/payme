@@ -317,7 +317,7 @@ async function loadOffice() {
     if (!res.ok) throw new Error(data.error || "Office not found");
     officeInfo = data.office;
     if (merchantName) merchantName.textContent = officeInfo.name;
-    document.title = `${officeInfo.name} — Lightning Pay`;
+    document.title = `${officeInfo.name} — Globa Pay`;
   } catch (err) {
     showError(err.message);
     payBtn.disabled = true;
