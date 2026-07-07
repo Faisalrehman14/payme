@@ -106,13 +106,6 @@
   flex-wrap: wrap;
 }
 
-.commission-input {
-  width: 88px;
-  padding: 6px 8px;
-  border: 1px solid var(--gp-border);
-  border-radius: 8px;
-}
-
 .site-settings-grid {
   margin-top: 12px;
 }

@@ -34,7 +34,7 @@ const passwordMsg = document.getElementById("passwordMsg");
 const infoUsername = document.getElementById("infoUsername");
 const infoTimezone = document.getElementById("infoTimezone");
 const infoTheme = document.getElementById("infoTheme");
-const infoCommission = document.getElementById("infoCommission");
+const infoOffice = document.getElementById("infoOffice");
 
 const PREF_KEY = "globapay_prefs";
 const REFRESH_MS = 5000;
@@ -64,10 +64,6 @@ async function api(path, options = {}) {
 
 function money(n) {
   return `$${Number(n || 0).toFixed(2)}`;
-}
-
-function pct(n) {
-  return `${Number(n || 0).toFixed(2)}%`;
 }
 
 function fmtTime(iso) {
@@ -120,20 +116,18 @@ function isToday(iso) {
   );
 }
 
-function paymentRow(p, commission) {
-  const gross = Number(p.grossUsd ?? p.amountUsd) || 0;
-  const net = Number(p.netUsd ?? gross * (1 - commission / 100));
+function paymentRow(p) {
+  const amount = Number(p.amountUsd) || 0;
   return `
     <tr>
-      <td>${money(gross)}</td>
-      <td>${money(net)}</td>
+      <td>${money(amount)}</td>
       <td>${p.method || "Cash App"}</td>
       <td>${fmtTime(p.settledAt || p.createdAt)}</td>
       <td>${statusBadge(p.status)}</td>
     </tr>`;
 }
 
-function renderPaymentsTable(tbody, payments, commission, filter = "") {
+function renderPaymentsTable(tbody, payments, filter = "") {
   const q = filter.trim().toLowerCase();
   const rows = payments.filter((p) => {
     if (!q) return true;
@@ -141,8 +135,8 @@ function renderPaymentsTable(tbody, payments, commission, filter = "") {
   });
 
   tbody.innerHTML =
-    rows.map((p) => paymentRow(p, commission)).join("") ||
-    `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">📭</div>No payments yet — share your checkout link to get started.</div></td></tr>`;
+    rows.map((p) => paymentRow(p)).join("") ||
+    `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">📭</div>No payments yet — share your checkout link to get started.</div></td></tr>`;
 }
 
 function loadPrefs() {
@@ -181,7 +175,7 @@ function renderSettings() {
   infoUsername.textContent = dashboardData.user.username;
   infoTimezone.textContent = timezoneLabel(prefs.timezone);
   infoTheme.textContent = themeLabel(prefs.theme);
-  infoCommission.textContent = pct(dashboardData.stats.commissionPercent || 0);
+  if (infoOffice) infoOffice.textContent = dashboardData.office?.name || "—";
 }
 
 function buildCustomerMessage(link) {
@@ -240,14 +234,14 @@ function drawRevenueChart(daily) {
   const w = 640;
   const h = 200;
   const pad = 36;
-  const maxGross = Math.max(...daily.map((d) => d.gross), 1);
+  const maxTotal = Math.max(...daily.map((d) => d.total), 1);
   const maxTxn = Math.max(...daily.map((d) => d.transactions), 1);
   const step = (w - pad * 2) / Math.max(daily.length - 1, 1);
 
-  const grossPoints = daily
+  const revenuePoints = daily
     .map((d, i) => {
       const x = pad + i * step;
-      const y = h - pad - (d.gross / maxGross) * (h - pad * 2);
+      const y = h - pad - (d.total / maxTotal) * (h - pad * 2);
       return `${x},${y}`;
     })
     .join(" ");
@@ -270,7 +264,7 @@ function drawRevenueChart(daily) {
 
   el.innerHTML = `
     <svg viewBox="0 0 ${w} ${h}" width="100%" height="220">
-      <polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="${grossPoints}" />
+      <polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="${revenuePoints}" />
       <polyline fill="none" stroke="#22c55e" stroke-width="2" points="${txnPoints}" />
       ${labels}
       <text x="12" y="16" font-size="11" fill="#2563eb">Revenue ($)</text>
@@ -280,23 +274,19 @@ function drawRevenueChart(daily) {
 
 function renderMonthly() {
   if (!monthlyData) return;
-  const c = monthlyData.commissionPercent || 0;
 
-  document.getElementById("mGross").textContent = money(monthlyData.grossRevenue);
+  document.getElementById("mTotal").textContent = money(monthlyData.totalRevenue);
   document.getElementById("mTxnCount").textContent = `${monthlyData.transactionCount} transactions`;
-  document.getElementById("mNetLabel").textContent = `Your Balance (After ${pct(c)})`;
-  document.getElementById("mNet").textContent = money(monthlyData.netRevenue);
   document.getElementById("mAvg").textContent = money(monthlyData.avgTransaction);
   document.getElementById("mHigh").textContent = money(monthlyData.highest);
   document.getElementById("mLow").textContent = money(monthlyData.lowest);
-  document.getElementById("monthlyAfterHeader").textContent = `AFTER ${pct(c)}`;
 
   drawRevenueChart(monthlyData.dailyBreakdown);
 
   const method = monthlyData.paymentMethods[0] || {
     name: "Cash App",
     percent: 100,
-    gross: 0,
+    total: 0,
     count: 0,
   };
   document.getElementById("methodBreakdown").innerHTML = `
@@ -306,7 +296,7 @@ function renderMonthly() {
         <div class="method-meta">${method.percent.toFixed(1)}% of total revenue</div>
       </div>
       <div style="text-align:right">
-        <strong>${money(method.gross)}</strong>
+        <strong>${money(method.total)}</strong>
         <div class="method-meta">${method.count} payments</div>
       </div>
       <div class="method-bar"><span style="width:100%"></span></div>
@@ -319,12 +309,11 @@ function renderMonthly() {
       <tr>
         <td>${fmtDateShort(d.date)}</td>
         <td><span class="txn-link">${d.transactions}</span></td>
-        <td class="gross-text">${money(d.gross)}</td>
-        <td class="net-text">${money(d.net)}</td>
+        <td class="gross-text">${money(d.total)}</td>
         <td><span class="badge paid">completed</span></td>
       </tr>`
       )
-      .join("") || `<tr><td colspan="5">No payments this month</td></tr>`;
+      .join("") || `<tr><td colspan="4">No payments this month</td></tr>`;
 }
 
 async function loadMonthly() {
@@ -336,11 +325,10 @@ async function loadMonthly() {
 
 function exportMonthlyCsv() {
   if (!monthlyData) return;
-  const c = monthlyData.commissionPercent || 0;
   const lines = [
-    ["Date", "Transactions", "Gross", `After ${c}%`, "Status"].join(","),
+    ["Date", "Transactions", "Total", "Status"].join(","),
     ...monthlyData.dailyBreakdown.map((d) =>
-      [d.date, d.transactions, d.gross.toFixed(2), d.net.toFixed(2), "Completed"].join(",")
+      [d.date, d.transactions, d.total.toFixed(2), "Completed"].join(",")
     ),
   ];
   const blob = new Blob([lines.join("\n")], { type: "text/csv" });
@@ -353,13 +341,11 @@ function exportMonthlyCsv() {
 
 function renderDashboard() {
   if (!dashboardData) return;
-  const { user, office, payLink, stats } = dashboardData;
-  const commission = stats.commissionPercent || 0;
+  const { user, office, stats } = dashboardData;
 
   document.getElementById("greeting").textContent = `${greeting()}, ${user.username}`;
   document.getElementById("userName").textContent = user.username;
   document.getElementById("userAvatar").textContent = user.username.charAt(0).toUpperCase();
-  document.getElementById("sidebarCommission").textContent = pct(commission);
 
   const topbarOffice = document.getElementById("topbarOfficeName");
   if (topbarOffice) topbarOffice.textContent = office?.name || "—";
@@ -367,29 +353,19 @@ function renderDashboard() {
   const livePill = document.getElementById("livePill");
   if (livePill) livePill.textContent = `Live · ${new Date().toLocaleTimeString()}`;
 
-  document.getElementById("todayGross").textContent = money(stats.todayGross);
-  document.getElementById("todayGrossSub").textContent = `Before ${pct(commission)} commission`;
-  document.getElementById("todayNet").textContent = money(stats.todayNet);
-  document.getElementById("todayNetTag").textContent = `- ${pct(commission)}`;
+  document.getElementById("todayTotal").textContent = money(stats.todayTotal);
   document.getElementById("todayCount").textContent = stats.todayCount;
-  document.getElementById("monthNet").textContent = money(stats.monthNet);
-  document.getElementById("monthSub").textContent =
-    `Gross ${money(stats.monthGross)} · ${stats.monthCount} txns`;
-
-  document.getElementById("bannerCommission").textContent = pct(commission);
-  document.getElementById("flowGross").textContent = money(stats.todayGross);
-  document.getElementById("flowNet").textContent = money(stats.todayNet);
-  document.getElementById("afterPctHeader").textContent = `After ${pct(commission)}`;
-  document.getElementById("historyAfterHeader").textContent = `After ${pct(commission)}`;
+  document.getElementById("monthTotal").textContent = money(stats.monthTotal);
+  document.getElementById("monthSub").textContent = `${stats.monthCount} txns this month`;
+  document.getElementById("pendingCount").textContent = stats.pendingCount;
 
   const todayPayments = allPayments.filter((p) => isToday(p.settledAt || p.createdAt));
   renderPaymentsTable(
     document.getElementById("todayPaymentsTable"),
     todayPayments,
-    commission,
     searchInput.value
   );
-  renderPaymentsTable(document.getElementById("historyPaymentsTable"), allPayments, commission);
+  renderPaymentsTable(document.getElementById("historyPaymentsTable"), allPayments);
   renderCheckout();
   renderSettings();
 }

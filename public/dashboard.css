@@ -10,11 +10,6 @@ body {
   --dash-text-muted: #64748b;
   --dash-stat-highlight-bg: linear-gradient(145deg, #eff6ff, #ffffff);
   --dash-stat-highlight-border: #93c5fd;
-  --dash-commission-bg: linear-gradient(135deg, #fff7ed, #ffffff);
-  --dash-commission-border: #fed7aa;
-  --dash-commission-text: #9a3412;
-  --dash-commission-sub: #c2410c;
-  --dash-commission-flow-bg: #ffffff;
   --dash-icon-green: #dcfce7;
   --dash-icon-blue: #dbeafe;
   --dash-icon-orange: #ffedd5;
@@ -36,11 +31,6 @@ body.dashboard-dark {
   --dash-text-muted: #94a3b8;
   --dash-stat-highlight-bg: linear-gradient(145deg, #1e3a5f, #1e293b);
   --dash-stat-highlight-border: #3b82f6;
-  --dash-commission-bg: linear-gradient(135deg, #292524, #1e293b);
-  --dash-commission-border: #78350f;
-  --dash-commission-text: #fdba74;
-  --dash-commission-sub: #fb923c;
-  --dash-commission-flow-bg: #0f172a;
   --dash-icon-green: rgba(34, 197, 94, 0.2);
   --dash-icon-blue: rgba(59, 130, 246, 0.25);
   --dash-icon-orange: rgba(249, 115, 22, 0.22);
@@ -313,16 +303,6 @@ body {
   font-size: 11px;
   color: #94a3b8;
   margin-top: 2px;
-}
-
-.commission-pill {
-  background: linear-gradient(135deg, #f59e0b, #ea580c);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 5px 8px;
-  border-radius: 8px;
-  letter-spacing: 0.02em;
 }
 
 .sidebar-nav {
@@ -649,59 +629,6 @@ body.dashboard-dark .stat-icon.purple { color: #c084fc; }
   color: var(--dash-text-muted);
   font-size: 12px;
   margin-top: 6px;
-}
-
-.commission-tag {
-  display: inline-block;
-  margin-top: 8px;
-  background: var(--dash-tag-bg);
-  color: var(--dash-tag-text);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 999px;
-}
-
-/* ── Commission banner ── */
-.commission-banner {
-  background: var(--dash-commission-bg);
-  border: 1px solid var(--dash-commission-border);
-  border-radius: 16px;
-  padding: 18px 22px;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  align-items: center;
-}
-
-.commission-banner strong {
-  font-size: 15px;
-  color: var(--dash-commission-text);
-}
-
-.commission-banner p {
-  margin: 6px 0 0;
-  color: var(--dash-commission-sub);
-  font-size: 13px;
-  opacity: 0.9;
-}
-
-.commission-flow {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  color: var(--dash-commission-text);
-  font-size: 14px;
-  background: var(--dash-commission-flow-bg);
-  padding: 10px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--dash-commission-border);
-}
-
-.commission-flow strong {
-  color: var(--dash-text);
 }
 
 /* ── Panels & tables ── */
@@ -1071,8 +998,6 @@ tbody tr:last-child td {
   text-transform: uppercase;
 }
 .info-value { font-size: 18px; font-weight: 800; color: var(--dash-text); }
-.commission-value { color: #ea580c; }
-body.dashboard-dark .commission-value { color: #fb923c; }
 .info-sub { font-size: 12px; color: var(--dash-text-muted); margin-top: 4px; }
 
 /* ── Empty state ── */

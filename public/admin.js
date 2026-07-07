@@ -16,7 +16,6 @@ const paymentSearch = document.getElementById("paymentSearch");
 
 const officeName = document.getElementById("officeName");
 const officeSlug = document.getElementById("officeSlug");
-const officeCommission = document.getElementById("officeCommission");
 const createOfficeBtn = document.getElementById("createOfficeBtn");
 const officeError = document.getElementById("officeError");
 const officeSuccess = document.getElementById("officeSuccess");
@@ -55,9 +54,9 @@ function setLoading() {
     .map(() => `<div class="stat-card skeleton-card"><div class="skeleton"></div></div>`)
     .join("");
   recentPaymentsTable.innerHTML = skeletonRows(5);
-  officesTable.innerHTML = skeletonRows(7);
+  officesTable.innerHTML = skeletonRows(6);
   usersTable.innerHTML = skeletonRows(4);
-  paymentsTable.innerHTML = skeletonRows(6);
+  paymentsTable.innerHTML = skeletonRows(5);
   if (auditTable) auditTable.innerHTML = skeletonRows(5);
 }
 
@@ -144,7 +143,7 @@ function renderOverview(overview) {
       <tr>
         <td>${fmtTime(p.settledAt || p.createdAt)}</td>
         <td>${p.officeName}</td>
-        <td>${money(p.grossUsd)}</td>
+        <td>${money(p.amountUsd)}</td>
         <td>Cash App</td>
         <td>${statusBadge(p.status)}</td>
       </tr>`
@@ -207,18 +206,12 @@ function renderOffices(offices) {
         </div>
       </td>
       <td><div class="link-box">${o.payLink}</div></td>
-      <td>
-        <div class="inline-actions">
-          <input type="number" min="0" max="100" step="0.01" value="${o.commissionPercent ?? 0}" data-commission="${o.id}" class="commission-input" />
-          <button class="btn btn-secondary" type="button" data-save-commission="${o.id}">Save</button>
-        </div>
-      </td>
       <td>${o.stats.paidCount}</td>
       <td>${o.stats.pendingCount}</td>
       <td>${money(o.stats.totalUsd)}</td>
     </tr>`
     )
-    .join("") || `<tr><td colspan="7">No offices yet — create your first office above.</td></tr>`;
+    .join("") || `<tr><td colspan="6">No offices yet — create your first office above.</td></tr>`;
 }
 
 function renderUsers(users) {
@@ -256,13 +249,12 @@ function renderPayments(payments) {
     <tr>
       <td>${fmtTime(p.settledAt || p.createdAt)}</td>
       <td>${p.officeName}</td>
-      <td>${money(p.grossUsd)}</td>
-      <td>${money(p.netUsd)}</td>
+      <td>${money(p.amountUsd)}</td>
       <td>Cash App</td>
       <td>${statusBadge(p.status)}</td>
     </tr>`
     )
-    .join("") || `<tr><td colspan="6">No payments found</td></tr>`;
+    .join("") || `<tr><td colspan="5">No payments found</td></tr>`;
 }
 
 async function loadAll() {
@@ -355,12 +347,10 @@ createOfficeBtn.addEventListener("click", async () => {
       body: JSON.stringify({
         name: officeName.value.trim(),
         slug: officeSlug.value.trim() || undefined,
-        commissionPercent: Number(officeCommission.value) || 0,
       }),
     });
     officeName.value = "";
     officeSlug.value = "";
-    officeCommission.value = "0";
     officeSuccess.textContent = "Office created successfully";
     await loadAll();
   } catch (err) {
@@ -406,22 +396,6 @@ officesTable.addEventListener("click", async (e) => {
       alert(err.message);
     }
     return;
-  }
-
-  const btn = e.target.closest("[data-save-commission]");
-  if (!btn) return;
-  const officeId = btn.dataset.saveCommission;
-  const input = officesTable.querySelector(`input[data-commission="${officeId}"]`);
-  try {
-    await api(`/api/admin/offices/${officeId}/commission`, {
-      method: "PATCH",
-      body: JSON.stringify({ commissionPercent: Number(input.value) || 0 }),
-    });
-    btn.textContent = "Saved";
-    setTimeout(() => { btn.textContent = "Save"; }, 1500);
-    await loadAll();
-  } catch (err) {
-    alert(err.message);
   }
 });
 

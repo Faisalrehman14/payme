@@ -20,7 +20,7 @@
         </div>
       </div>
       <h1>Secure Admin Login</h1>
-      <p class="sub">Manage offices, commission rates, and staff accounts.</p>
+      <p class="sub">Manage offices and staff accounts.</p>
       <input id="loginUser" class="field" type="text" placeholder="Admin username" autocomplete="username" />
       <input id="loginPass" class="field" type="password" placeholder="Password" autocomplete="current-password" />
       <button id="loginBtn" class="btn btn-primary" type="button">Sign In</button>
@@ -85,7 +85,7 @@
                 <tr>
                   <th>Time</th>
                   <th>Office</th>
-                  <th>Gross</th>
+                  <th>Amount</th>
                   <th>Method</th>
                   <th>Status</th>
                 </tr>
@@ -101,7 +101,7 @@
           <div>
             <p class="breadcrumb">Admin / Offices</p>
             <h1>Office Management</h1>
-            <p class="sub">Create offices, payment links, and commission rates.</p>
+            <p class="sub">Create offices and payment links.</p>
           </div>
         </div>
 
@@ -110,7 +110,6 @@
           <div class="form-grid">
             <input id="officeName" class="field" type="text" placeholder="Office name" />
             <input id="officeSlug" class="field" type="text" placeholder="URL slug (optional)" />
-            <input id="officeCommission" class="field" type="number" min="0" max="100" step="0.01" placeholder="Commission %" value="0" />
             <button id="createOfficeBtn" class="btn btn-primary" type="button">Create Office</button>
           </div>
           <p class="error" id="officeError"></p>
@@ -126,7 +125,6 @@
                   <th>Office</th>
                   <th>Status</th>
                   <th>Payment Link</th>
-                  <th>Commission</th>
                   <th>Paid</th>
                   <th>Pending</th>
                   <th>Revenue</th>
@@ -194,8 +192,7 @@
                 <tr>
                   <th>Time</th>
                   <th>Office</th>
-                  <th>Gross</th>
-                  <th>Net</th>
+                  <th>Amount</th>
                   <th>Method</th>
                   <th>Status</th>
                 </tr>

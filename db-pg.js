@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS platform_settings (
   id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   contact_email TEXT NOT NULL DEFAULT 'payments@globapay.com',
   contact_headline TEXT NOT NULL DEFAULT 'Want to receive Cash App payments?',
-  contact_message TEXT NOT NULL DEFAULT 'Contact us to set up your office with a dedicated payment link, secure dashboard, and real-time commission tracking.',
+  contact_message TEXT NOT NULL DEFAULT 'Contact us to set up your office with a dedicated payment link and secure dashboard with real-time payment tracking.',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 `;
@@ -107,7 +107,6 @@ function mapOffice(row) {
     name: row.name,
     slug: row.slug,
     active: row.active,
-    commissionPercent: Number(row.commission_percent || 0),
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -155,7 +154,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
   contactEmail: process.env.CONTACT_EMAIL || "payments@globapay.com",
   contactHeadline: "Want to receive Cash App payments?",
   contactMessage:
-    "Contact us to set up your office with a dedicated payment link, secure dashboard, and real-time commission tracking.",
+    "Contact us to set up your office with a dedicated payment link and secure dashboard with real-time payment tracking.",
 };
 
 function mapPlatformSettings(row) {
@@ -380,31 +379,19 @@ async function getOfficeById(id) {
   return mapOffice(rows[0]);
 }
 
-async function createOffice(name, slug, commissionPercent = 0) {
+async function createOffice(name, slug) {
   const cleanSlug = slug || slugify(name);
   if (!cleanSlug) throw new Error("Invalid office name");
-  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
 
   const existing = await pool.query("SELECT id FROM offices WHERE slug = $1", [cleanSlug]);
   if (existing.rows.length) throw new Error("Office slug already exists");
 
   const id = crypto.randomUUID();
   const { rows } = await pool.query(
-    `INSERT INTO offices (id, name, slug, active, commission_percent)
-     VALUES ($1, $2, $3, TRUE, $4)
+    `INSERT INTO offices (id, name, slug, active)
+     VALUES ($1, $2, $3, TRUE)
      RETURNING *`,
-    [id, name.trim(), cleanSlug, pct]
-  );
-  return mapOffice(rows[0]);
-}
-
-async function updateOfficeCommission(officeId, commissionPercent) {
-  const office = await getOfficeById(officeId);
-  if (!office) throw new Error("Office not found");
-  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
-  const { rows } = await pool.query(
-    `UPDATE offices SET commission_percent = $1 WHERE id = $2 RETURNING *`,
-    [pct, officeId]
+    [id, name.trim(), cleanSlug]
   );
   return mapOffice(rows[0]);
 }
@@ -419,14 +406,9 @@ async function updateOfficeActive(officeId, active) {
   return mapOffice(rows[0]);
 }
 
-function netUsd(gross, commissionPercent) {
-  return gross * (1 - commissionPercent / 100);
-}
-
 async function getDashboardStats(officeId) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
-  const pct = office.commissionPercent;
 
   const { rows } = await pool.query(
     `SELECT amount_usd, status, settled_at, created_at
@@ -439,38 +421,30 @@ async function getDashboardStats(officeId) {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  let todayGross = 0;
-  let todayNet = 0;
+  let todayTotal = 0;
   let todayCount = 0;
-  let monthGross = 0;
-  let monthNet = 0;
+  let monthTotal = 0;
   let monthCount = 0;
 
   for (const row of rows) {
     if (row.status !== "paid") continue;
-    const gross = Number(row.amount_usd);
-    const net = netUsd(gross, pct);
+    const amount = Number(row.amount_usd);
     const paidAt = new Date(row.settled_at || row.created_at);
 
     if (paidAt >= startOfDay) {
-      todayGross += gross;
-      todayNet += net;
+      todayTotal += amount;
       todayCount += 1;
     }
     if (paidAt >= startOfMonth) {
-      monthGross += gross;
-      monthNet += net;
+      monthTotal += amount;
       monthCount += 1;
     }
   }
 
   return {
-    commissionPercent: pct,
-    todayGross,
-    todayNet,
+    todayTotal,
     todayCount,
-    monthGross,
-    monthNet,
+    monthTotal,
     monthCount,
     totalPayments: rows.length,
     paidCount: rows.filter((r) => r.status === "paid").length,
@@ -481,7 +455,6 @@ async function getDashboardStats(officeId) {
 async function getMonthlyStats(officeId, month, year) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
-  const commission = office.commissionPercent || 0;
   const payments = (await listPaymentsForOffice(officeId, 10000)).filter((p) => p.status === "paid");
 
   const inMonth = payments.filter((p) => {
@@ -490,18 +463,16 @@ async function getMonthlyStats(officeId, month, year) {
   });
 
   const amounts = inMonth.map((p) => Number(p.amountUsd) || 0);
-  const grossRevenue = amounts.reduce((a, b) => a + b, 0);
-  const netRevenue = inMonth.reduce((s, p) => s + netUsd(Number(p.amountUsd), commission), 0);
+  const totalRevenue = amounts.reduce((a, b) => a + b, 0);
 
   const byDay = {};
   for (const p of inMonth) {
     const d = new Date(p.settledAt || p.createdAt);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    if (!byDay[key]) byDay[key] = { date: key, transactions: 0, gross: 0, net: 0 };
-    const g = Number(p.amountUsd);
+    if (!byDay[key]) byDay[key] = { date: key, transactions: 0, total: 0 };
+    const amount = Number(p.amountUsd);
     byDay[key].transactions += 1;
-    byDay[key].gross += g;
-    byDay[key].net += netUsd(g, commission);
+    byDay[key].total += amount;
   }
 
   const dailyBreakdown = Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date));
@@ -509,11 +480,9 @@ async function getMonthlyStats(officeId, month, year) {
   return {
     month,
     year,
-    commissionPercent: commission,
-    grossRevenue,
-    netRevenue,
+    totalRevenue,
     transactionCount: inMonth.length,
-    avgTransaction: inMonth.length ? grossRevenue / inMonth.length : 0,
+    avgTransaction: inMonth.length ? totalRevenue / inMonth.length : 0,
     highest: amounts.length ? Math.max(...amounts) : 0,
     lowest: amounts.length ? Math.min(...amounts) : 0,
     dailyBreakdown,
@@ -521,7 +490,7 @@ async function getMonthlyStats(officeId, month, year) {
       {
         name: "Cash App",
         percent: 100,
-        gross: grossRevenue,
+        total: totalRevenue,
         count: inMonth.length,
       },
     ],
@@ -741,11 +710,9 @@ module.exports = {
   getOfficeBySlugAny,
   getOfficeById,
   createOffice,
-  updateOfficeCommission,
   updateOfficeActive,
   getDashboardStats,
   getMonthlyStats,
-  netUsd,
   createOfficeUser,
   updateOfficeUserPassword,
   deleteOfficeUser,

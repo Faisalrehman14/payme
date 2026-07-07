@@ -33,8 +33,8 @@ router.get("/overview", requireAuth, requireAdmin, async (_req, res) => {
       users: users.length,
       paidCount: paid.length,
       pendingCount: payments.filter((p) => p.status === "pending").length,
-      totalRevenue: paid.reduce((sum, p) => sum + (p.grossUsd || 0), 0),
-      todayRevenue: todayPaid.reduce((sum, p) => sum + (p.grossUsd || 0), 0),
+      totalRevenue: paid.reduce((sum, p) => sum + (p.amountUsd || 0), 0),
+      todayRevenue: todayPaid.reduce((sum, p) => sum + (p.amountUsd || 0), 0),
       todayCount: todayPaid.length,
       recentPayments: payments.slice(0, 8),
       health: {
@@ -67,19 +67,15 @@ router.get("/offices", requireAuth, requireAdmin, async (req, res) => {
 
 router.post("/offices", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, slug, commissionPercent } = req.body || {};
+    const { name, slug } = req.body || {};
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Office name required" });
     }
-    const office = await db.createOffice(
-      name.trim(),
-      slug ? slug.trim() : undefined,
-      commissionPercent
-    );
+    const office = await db.createOffice(name.trim(), slug ? slug.trim() : undefined);
     await logAudit(req, "office.create", {
       targetType: "office",
       targetId: office.id,
-      details: { name: office.name, slug: office.slug, commissionPercent: office.commissionPercent },
+      details: { name: office.name, slug: office.slug },
     });
     res.status(201).json({
       office: {
@@ -87,24 +83,6 @@ router.post("/offices", requireAuth, requireAdmin, async (req, res) => {
         payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
       },
     });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-router.patch("/offices/:id/commission", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { commissionPercent } = req.body || {};
-    if (commissionPercent === undefined || commissionPercent === null) {
-      return res.status(400).json({ error: "Commission percent required" });
-    }
-    const office = await db.updateOfficeCommission(req.params.id, commissionPercent);
-    await logAudit(req, "office.commission", {
-      targetType: "office",
-      targetId: office.id,
-      details: { commissionPercent: office.commissionPercent },
-    });
-    res.json({ office: officePublicView(office) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

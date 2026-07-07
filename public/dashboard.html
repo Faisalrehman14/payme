@@ -20,7 +20,7 @@
         </div>
       </div>
       <h2>Your office payment command center.</h2>
-      <p class="brand-lead">Track Cash App payments, monitor commissions, and manage your checkout link — all in one secure dashboard.</p>
+      <p class="brand-lead">Track Cash App payments and manage your checkout link — all in one secure dashboard.</p>
       <div class="login-features">
         <div class="login-feature">
           <span class="login-feature-icon">📊</span>
@@ -80,7 +80,6 @@
           <div class="user-name" id="userName">—</div>
           <div class="user-role">Office Account</div>
         </div>
-        <div class="commission-pill" id="sidebarCommission">0%</div>
       </div>
 
       <nav class="sidebar-nav">
@@ -121,7 +120,7 @@
           <div class="hero">
             <div>
               <h1 id="greeting">Good morning</h1>
-              <p>Track payments, commission, and customer activity for your office.</p>
+              <p>Track payments and customer activity for your office.</p>
             </div>
             <div class="hero-actions">
               <button type="button" class="btn btn-outline" id="heroShareBtn">Share Link</button>
@@ -130,21 +129,13 @@
           </div>
 
           <div class="stat-grid">
-            <div class="stat-card">
-              <div class="stat-card-top">
-                <div class="stat-label">Today's Gross</div>
-                <div class="stat-icon green">$</div>
-              </div>
-              <div class="stat-value" id="todayGross">$0.00</div>
-              <div class="stat-sub" id="todayGrossSub">Before commission</div>
-            </div>
             <div class="stat-card highlight">
               <div class="stat-card-top">
-                <div class="stat-label">Your Balance</div>
-                <div class="stat-icon blue">✓</div>
+                <div class="stat-label">Today's Revenue</div>
+                <div class="stat-icon green">$</div>
               </div>
-              <div class="stat-value" id="todayNet">$0.00</div>
-              <div class="commission-tag" id="todayNetTag">- 0%</div>
+              <div class="stat-value" id="todayTotal">$0.00</div>
+              <div class="stat-sub">Paid today</div>
             </div>
             <div class="stat-card">
               <div class="stat-card-top">
@@ -156,23 +147,19 @@
             </div>
             <div class="stat-card">
               <div class="stat-card-top">
-                <div class="stat-label">Month Net</div>
+                <div class="stat-label">Month Revenue</div>
                 <div class="stat-icon orange">▲</div>
               </div>
-              <div class="stat-value" id="monthNet">$0.00</div>
-              <div class="stat-sub" id="monthSub">Gross $0.00 · 0 txns</div>
+              <div class="stat-value" id="monthTotal">$0.00</div>
+              <div class="stat-sub" id="monthSub">0 txns this month</div>
             </div>
-          </div>
-
-          <div class="commission-banner">
-            <div>
-              <strong>Commission Rate: <span id="bannerCommission">0.00%</span></strong>
-              <p>Assigned by admin — deducted from gross earnings before your balance.</p>
-            </div>
-            <div class="commission-flow">
-              <span>Gross <strong id="flowGross">$0.00</strong></span>
-              <span>→</span>
-              <span>Balance <strong id="flowNet">$0.00</strong></span>
+            <div class="stat-card">
+              <div class="stat-card-top">
+                <div class="stat-label">Pending</div>
+                <div class="stat-icon blue">⏳</div>
+              </div>
+              <div class="stat-value" id="pendingCount">0</div>
+              <div class="stat-sub">Awaiting payment</div>
             </div>
           </div>
 
@@ -185,8 +172,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Gross</th>
-                    <th id="afterPctHeader">After 0%</th>
+                    <th>Amount</th>
                     <th>Method</th>
                     <th>Date</th>
                     <th>Status</th>
@@ -209,8 +195,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Gross</th>
-                    <th id="historyAfterHeader">After 0%</th>
+                    <th>Amount</th>
                     <th>Method</th>
                     <th>Date</th>
                     <th>Status</th>
@@ -244,14 +229,9 @@
 
           <div class="monthly-stats">
             <div class="m-stat green">
-              <div class="m-stat-label">Gross Revenue</div>
-              <div class="m-stat-value" id="mGross">$0.00</div>
+              <div class="m-stat-label">Total Revenue</div>
+              <div class="m-stat-value" id="mTotal">$0.00</div>
               <div class="m-stat-sub" id="mTxnCount">0 transactions</div>
-            </div>
-            <div class="m-stat orange">
-              <div class="m-stat-label" id="mNetLabel">Your Balance (After 0%)</div>
-              <div class="m-stat-value" id="mNet">$0.00</div>
-              <div class="m-stat-sub">Your share this month</div>
             </div>
             <div class="m-stat blue">
               <div class="m-stat-label">Avg Transaction</div>
@@ -299,8 +279,7 @@
                   <tr>
                     <th>Date</th>
                     <th>Transactions</th>
-                    <th>Gross</th>
-                    <th id="monthlyAfterHeader">After 0%</th>
+                    <th>Total</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -432,9 +411,8 @@
                 <div class="info-value" id="infoTheme">Light</div>
               </div>
               <div class="info-tile">
-                <div class="info-label">Commission</div>
-                <div class="info-value commission-value" id="infoCommission">0.00%</div>
-                <div class="info-sub">Set by administrator</div>
+                <div class="info-label">Office</div>
+                <div class="info-value" id="infoOffice">—</div>
               </div>
             </div>
           </div>

@@ -18,7 +18,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
   contactEmail: process.env.CONTACT_EMAIL || "payments@globapay.com",
   contactHeadline: "Want to receive Cash App payments?",
   contactMessage:
-    "Contact us to set up your office with a dedicated payment link, secure dashboard, and real-time commission tracking.",
+    "Contact us to set up your office with a dedicated payment link and secure dashboard with real-time payment tracking.",
   updatedAt: null,
 };
 
@@ -204,10 +204,9 @@ async function getOfficeById(id) {
   return db.offices.find((o) => o.id === id) || null;
 }
 
-async function createOffice(name, slug, commissionPercent = 0) {
+async function createOffice(name, slug) {
   const cleanSlug = slug || slugify(name);
   if (!cleanSlug) throw new Error("Invalid office name");
-  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
 
   const db = readDb();
   if (db.offices.some((o) => o.slug === cleanSlug)) {
@@ -219,7 +218,6 @@ async function createOffice(name, slug, commissionPercent = 0) {
     name: name.trim(),
     slug: cleanSlug,
     active: true,
-    commissionPercent: pct,
     createdAt: new Date().toISOString(),
   };
 
@@ -228,17 +226,6 @@ async function createOffice(name, slug, commissionPercent = 0) {
   });
 
   return office;
-}
-
-async function updateOfficeCommission(officeId, commissionPercent) {
-  const office = await getOfficeById(officeId);
-  if (!office) throw new Error("Office not found");
-  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
-  updateDb((d) => {
-    const idx = d.offices.findIndex((o) => o.id === officeId);
-    if (idx !== -1) d.offices[idx].commissionPercent = pct;
-  });
-  return { ...office, commissionPercent: pct };
 }
 
 async function updateOfficeActive(officeId, active) {
@@ -251,52 +238,39 @@ async function updateOfficeActive(officeId, active) {
   return { ...office, active: Boolean(active) };
 }
 
-function netUsd(gross, commissionPercent) {
-  return gross * (1 - commissionPercent / 100);
-}
-
 async function getDashboardStats(officeId) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
-  const pct = office.commissionPercent || 0;
   const payments = await listPaymentsForOffice(officeId, 5000);
 
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  let todayGross = 0;
-  let todayNet = 0;
+  let todayTotal = 0;
   let todayCount = 0;
-  let monthGross = 0;
-  let monthNet = 0;
+  let monthTotal = 0;
   let monthCount = 0;
 
   for (const p of payments) {
     if (p.status !== "paid") continue;
-    const gross = p.amountUsd || 0;
-    const net = netUsd(gross, pct);
+    const amount = p.amountUsd || 0;
     const paidAt = new Date(p.settledAt || p.createdAt);
 
     if (paidAt >= startOfDay) {
-      todayGross += gross;
-      todayNet += net;
+      todayTotal += amount;
       todayCount += 1;
     }
     if (paidAt >= startOfMonth) {
-      monthGross += gross;
-      monthNet += net;
+      monthTotal += amount;
       monthCount += 1;
     }
   }
 
   return {
-    commissionPercent: pct,
-    todayGross,
-    todayNet,
+    todayTotal,
     todayCount,
-    monthGross,
-    monthNet,
+    monthTotal,
     monthCount,
     totalPayments: payments.length,
     paidCount: payments.filter((p) => p.status === "paid").length,
@@ -307,7 +281,6 @@ async function getDashboardStats(officeId) {
 async function getMonthlyStats(officeId, month, year) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
-  const commission = office.commissionPercent || 0;
   const payments = (await listPaymentsForOffice(officeId, 10000)).filter((p) => p.status === "paid");
 
   const inMonth = payments.filter((p) => {
@@ -316,18 +289,16 @@ async function getMonthlyStats(officeId, month, year) {
   });
 
   const amounts = inMonth.map((p) => Number(p.amountUsd) || 0);
-  const grossRevenue = amounts.reduce((a, b) => a + b, 0);
-  const netRevenue = inMonth.reduce((s, p) => s + netUsd(Number(p.amountUsd), commission), 0);
+  const totalRevenue = amounts.reduce((a, b) => a + b, 0);
 
   const byDay = {};
   for (const p of inMonth) {
     const d = new Date(p.settledAt || p.createdAt);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    if (!byDay[key]) byDay[key] = { date: key, transactions: 0, gross: 0, net: 0 };
-    const g = Number(p.amountUsd);
+    if (!byDay[key]) byDay[key] = { date: key, transactions: 0, total: 0 };
+    const amount = Number(p.amountUsd);
     byDay[key].transactions += 1;
-    byDay[key].gross += g;
-    byDay[key].net += netUsd(g, commission);
+    byDay[key].total += amount;
   }
 
   const dailyBreakdown = Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date));
@@ -335,11 +306,9 @@ async function getMonthlyStats(officeId, month, year) {
   return {
     month,
     year,
-    commissionPercent: commission,
-    grossRevenue,
-    netRevenue,
+    totalRevenue,
     transactionCount: inMonth.length,
-    avgTransaction: inMonth.length ? grossRevenue / inMonth.length : 0,
+    avgTransaction: inMonth.length ? totalRevenue / inMonth.length : 0,
     highest: amounts.length ? Math.max(...amounts) : 0,
     lowest: amounts.length ? Math.min(...amounts) : 0,
     dailyBreakdown,
@@ -347,7 +316,7 @@ async function getMonthlyStats(officeId, month, year) {
       {
         name: "Cash App",
         percent: 100,
-        gross: grossRevenue,
+        total: totalRevenue,
         count: inMonth.length,
       },
     ],
@@ -504,11 +473,9 @@ module.exports = {
   getOfficeBySlugAny,
   getOfficeById,
   createOffice,
-  updateOfficeCommission,
   updateOfficeActive,
   getDashboardStats,
   getMonthlyStats,
-  netUsd,
   createOfficeUser,
   updateOfficeUserPassword,
   deleteOfficeUser,
