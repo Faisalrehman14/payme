@@ -3,19 +3,68 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Globa Pay</title>
+  <meta name="theme-color" content="#1d4ed8" />
+  <title>Globa Pay — Professional Payment Portal</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/admin.css" />
+  <link rel="stylesheet" href="/brand.css" />
+  <link rel="stylesheet" href="/landing.css" />
 </head>
 <body>
-  <div class="wrap login-wrap">
-    <div class="card">
-      <h1>⚡ Globa Pay</h1>
-      <p class="sub">Customers pay through their office link. Staff verify payments in the dashboard.</p>
-      <p><a href="/admin">Admin Portal</a> — create offices and users</p>
-      <p><a href="/dashboard">Office Dashboard</a> — verify payments</p>
-      <p class="sub" style="margin-top:20px">Customer links look like:<br /><code>/pay/your-office-slug</code></p>
-    </div>
+  <div class="landing">
+    <header class="landing-nav">
+      <div class="brand-logo">
+        <div class="brand-mark">G</div>
+        <div class="brand-text">
+          <strong>Globa Pay</strong>
+          <span>Payment Infrastructure</span>
+        </div>
+      </div>
+      <nav>
+        <a href="/dashboard">Office Portal</a>
+        <a href="/admin" class="btn btn-primary">Admin Login</a>
+      </nav>
+    </header>
+
+    <section class="hero-landing">
+      <div>
+        <h1>Professional payment portal for every office.</h1>
+        <p>Accept Cash App payments, track commissions, and give each office its own secure dashboard — powered by Globa Pay.</p>
+        <div class="hero-actions">
+          <a href="/admin" class="btn btn-primary">Launch Admin</a>
+          <a href="/dashboard" class="btn btn-outline">Office Login</a>
+        </div>
+      </div>
+      <div class="hero-card panel">
+        <h3>How it works</h3>
+        <ol>
+          <li>Admin creates an office and sets commission %</li>
+          <li>Office gets a unique payment link</li>
+          <li>Customer pays via Cash App</li>
+          <li>Office dashboard updates automatically</li>
+        </ol>
+        <p class="sub">Example link: <code>/pay/your-office</code></p>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="panel feature-card">
+        <h3>Multi-Office Control</h3>
+        <p class="sub">Separate links, users, and revenue for every location.</p>
+      </div>
+      <div class="panel feature-card">
+        <h3>Commission Engine</h3>
+        <p class="sub">Admin assigns % — office sees gross vs net instantly.</p>
+      </div>
+      <div class="panel feature-card">
+        <h3>Secure & Reliable</h3>
+        <p class="sub">Encrypted sessions, rate-limited login, live payment sync.</p>
+      </div>
+    </section>
+
+    <footer class="landing-foot">
+      <span>© Globa Pay</span>
+      <span>Cash App payments · Lightning settlement</span>
+    </footer>
   </div>
 </body>
 </html>

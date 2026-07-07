@@ -21,6 +21,10 @@ const USE_SECURE_COOKIES =
   Boolean(process.env.RAILWAY_ENVIRONMENT) ||
   Boolean(process.env.RAILWAY_PUBLIC_DOMAIN);
 
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+const loginAttempts = new Map();
+
 app.set("trust proxy", 1);
 
 function normalizeToken(value) {
@@ -335,8 +339,51 @@ async function syncOfficePayments(officeId) {
   await Promise.all(pending.map((p) => syncPaymentRecord(p)));
 }
 
+async function syncOfficePayments(officeId) {
+  const payments = await db.listPaymentsForOffice(officeId, 200);
+  const pending = payments.filter((p) => p.status === "pending");
+  await Promise.all(pending.map((p) => syncPaymentRecord(p)));
+}
+
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.ip || "unknown";
+}
+
+function checkLoginRateLimit(ip) {
+  const now = Date.now();
+  let entry = loginAttempts.get(ip);
+  if (!entry || now - entry.start > LOGIN_WINDOW_MS) {
+    entry = { start: now, count: 0 };
+  }
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+    throw new Error("Too many login attempts. Please wait 15 minutes.");
+  }
+  loginAttempts.set(ip, entry);
+}
+
+function recordFailedLogin(ip) {
+  const now = Date.now();
+  let entry = loginAttempts.get(ip);
+  if (!entry || now - entry.start > LOGIN_WINDOW_MS) {
+    entry = { start: now, count: 0 };
+  }
+  entry.count += 1;
+  loginAttempts.set(ip, entry);
+}
+
+function clearLoginAttempts(ip) {
+  loginAttempts.delete(ip);
+}
+
 app.post("/api/auth/login", async (req, res) => {
   try {
+    const ip = getClientIp(req);
+    checkLoginRateLimit(ip);
+
     const { username, password } = req.body || {};
     if (!username?.trim() || !password) {
       return res.status(400).json({ error: "Username and password required" });
@@ -344,8 +391,11 @@ app.post("/api/auth/login", async (req, res) => {
 
     const user = await db.findUserByUsername(username.trim());
     if (!user || !db.verifyPassword(password, user.passwordHash)) {
+      recordFailedLogin(ip);
       return res.status(401).json({ error: "Invalid username or password" });
     }
+
+    clearLoginAttempts(ip);
 
     const { token, expiresAt } = await db.createSession(user.id);
     setSessionCookie(res, token, expiresAt);
@@ -466,8 +516,8 @@ app.post("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
     if (!username || !password || !officeId) {
       return res.status(400).json({ error: "Username, password, and office required" });
     }
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
     const user = await db.createOfficeUser(username.trim(), password, officeId);
     const { passwordHash, ...safeUser } = user;
@@ -480,8 +530,8 @@ app.post("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
 app.patch("/api/admin/users/:id/password", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { password } = req.body || {};
-    if (!password || password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
     await db.updateOfficeUserPassword(req.params.id, password);
     res.json({ ok: true });
@@ -502,9 +552,47 @@ app.delete("/api/admin/users/:id", requireAuth, requireAdmin, async (req, res) =
 app.get("/api/admin/payments", requireAuth, requireAdmin, async (_req, res) => {
   try {
     const offices = await db.listOffices();
+    await Promise.all(offices.map((o) => syncOfficePayments(o.id)));
     const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
     const payments = (await db.listAllPayments()).map((p) => paymentView(p, officesById));
     res.json({ payments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/admin/overview", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const offices = await db.listOffices();
+    await Promise.all(offices.map((o) => syncOfficePayments(o.id)));
+
+    const users = (await db.listUsers()).filter((u) => u.role === "office");
+    const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
+    const payments = (await db.listAllPayments(300)).map((p) => paymentView(p, officesById));
+    const paid = payments.filter((p) => p.status === "paid");
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayPaid = paid.filter((p) => new Date(p.settledAt || p.createdAt) >= startOfDay);
+
+    const nwc = parseNwcUrl(NWC_URL || "");
+    const database = await db.healthCheck();
+
+    res.json({
+      offices: offices.length,
+      users: users.length,
+      paidCount: paid.length,
+      pendingCount: payments.filter((p) => p.status === "pending").length,
+      totalRevenue: paid.reduce((sum, p) => sum + (p.grossUsd || 0), 0),
+      todayRevenue: todayPaid.reduce((sum, p) => sum + (p.grossUsd || 0), 0),
+      todayCount: todayPaid.length,
+      recentPayments: payments.slice(0, 8),
+      health: {
+        nwc: nwc.valid,
+        nwcError: nwc.valid ? null : nwc.error,
+        database,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

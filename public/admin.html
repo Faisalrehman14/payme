@@ -3,113 +3,230 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Portal — Globa Pay</title>
+  <meta name="theme-color" content="#1d4ed8" />
+  <title>Admin — Globa Pay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/brand.css" />
   <link rel="stylesheet" href="/admin.css" />
 </head>
 <body>
-  <div class="wrap">
-    <section id="loginSection" class="login-wrap card">
-      <h1>Admin Login</h1>
-      <p class="sub">Manage offices, users, and payment links</p>
-      <div class="row">
-        <input id="loginUser" type="text" placeholder="Username" autocomplete="username" />
+  <section id="loginSection" class="login-shell">
+    <div class="login-card">
+      <div class="brand-logo">
+        <div class="brand-mark">G</div>
+        <div class="brand-text">
+          <strong>Globa Pay</strong>
+          <span>Admin Control</span>
+        </div>
       </div>
-      <div class="row">
-        <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
-      </div>
-      <button id="loginBtn" type="button">Login</button>
+      <h1>Secure Admin Login</h1>
+      <p class="sub">Manage offices, commission rates, and staff accounts.</p>
+      <input id="loginUser" class="field" type="text" placeholder="Admin username" autocomplete="username" />
+      <input id="loginPass" class="field" type="password" placeholder="Password" autocomplete="current-password" />
+      <button id="loginBtn" class="btn btn-primary" type="button">Sign In</button>
       <p class="error" id="loginError"></p>
-      <p class="sub" style="margin-top:16px">
-        Office staff? <a href="/dashboard">Go to dashboard</a>
+      <p class="sub" style="margin-top:16px;text-align:center">
+        Office staff? <a href="/dashboard">Open payment portal</a>
       </p>
-    </section>
+    </div>
+  </section>
 
-    <section id="appSection" class="hidden">
-      <div class="topbar">
+  <div id="appSection" class="admin-app hidden">
+    <aside class="admin-sidebar">
+      <div class="brand-logo sidebar-brand">
+        <div class="brand-mark">G</div>
+        <div class="brand-text">
+          <strong>Globa Pay</strong>
+          <span>ADMIN PORTAL</span>
+        </div>
+      </div>
+
+      <div class="admin-user">
+        <div class="admin-avatar" id="adminAvatar">A</div>
         <div>
-          <h1>Admin Portal</h1>
-          <p class="sub">Create offices and assign login accounts</p>
-        </div>
-        <div>
-          <nav>
-            <a href="/dashboard">Office Dashboard</a>
-          </nav>
-          <button id="logoutBtn" class="secondary" type="button">Logout</button>
+          <div class="admin-name" id="adminName">Admin</div>
+          <div class="admin-role">Super Administrator</div>
         </div>
       </div>
 
-      <div class="card">
-        <h2>Create Office</h2>
-        <p class="sub">Each office gets its own customer payment link</p>
-        <div class="row">
-          <input id="officeName" type="text" placeholder="Office name (e.g. Downtown Branch)" />
-          <input id="officeSlug" type="text" placeholder="Link slug (optional)" />
-          <input id="officeCommission" type="number" min="0" max="100" step="0.01" placeholder="Commission %" value="0" />
-          <button id="createOfficeBtn" type="button">Create Office</button>
+      <nav class="admin-nav">
+        <button type="button" class="nav-item active" data-view="overview">Overview</button>
+        <button type="button" class="nav-item" data-view="offices">Offices</button>
+        <button type="button" class="nav-item" data-view="users">Users</button>
+        <button type="button" class="nav-item" data-view="payments">Payments</button>
+        <button type="button" class="nav-item" data-view="system">System</button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <span class="badge live" id="liveBadge">Live sync</span>
+        <button type="button" class="btn btn-secondary sidebar-btn" id="logoutBtn">Logout</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <section class="admin-view" id="view-overview">
+        <div class="page-head">
+          <div>
+            <p class="breadcrumb">Admin / Overview</p>
+            <h1>Control Center</h1>
+            <p class="sub">Real-time overview across all offices and payments.</p>
+          </div>
+          <button type="button" class="btn btn-outline" id="refreshBtn">Refresh Now</button>
         </div>
-        <p class="error" id="officeError"></p>
-      </div>
 
-      <div class="card">
-        <h2>Offices</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Payment Link</th>
-              <th>Commission %</th>
-              <th>Paid</th>
-              <th>Pending</th>
-              <th>Total USD</th>
-            </tr>
-          </thead>
-          <tbody id="officesTable"></tbody>
-        </table>
-      </div>
+        <div class="stat-grid" id="overviewStats"></div>
 
-      <div class="card">
-        <h2>Create Office User</h2>
-        <p class="sub">Each username can only be used once. Example: cashapp1, noman1</p>
-        <div class="row">
-          <select id="userOffice"></select>
-          <input id="userName" type="text" placeholder="Username" />
-          <input id="userPass" type="password" placeholder="Password (min 6)" />
-          <button id="createUserBtn" type="button">Create User</button>
+        <div class="panel">
+          <h3>Recent Payments</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Office</th>
+                  <th>Gross</th>
+                  <th>Method</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="recentPaymentsTable"></tbody>
+            </table>
+          </div>
         </div>
-        <p class="error" id="userError"></p>
-      </div>
+      </section>
 
-      <div class="card">
-        <h2>Office Users</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Office</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="usersTable"></tbody>
-        </table>
-      </div>
+      <section class="admin-view hidden" id="view-offices">
+        <div class="page-head">
+          <div>
+            <p class="breadcrumb">Admin / Offices</p>
+            <h1>Office Management</h1>
+            <p class="sub">Create offices, payment links, and commission rates.</p>
+          </div>
+        </div>
 
-      <div class="card">
-        <h2>All Payments</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Office</th>
-              <th>Amount</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="paymentsTable"></tbody>
-        </table>
-      </div>
-    </section>
+        <div class="panel">
+          <h3>Create Office</h3>
+          <div class="form-grid">
+            <input id="officeName" class="field" type="text" placeholder="Office name" />
+            <input id="officeSlug" class="field" type="text" placeholder="URL slug (optional)" />
+            <input id="officeCommission" class="field" type="number" min="0" max="100" step="0.01" placeholder="Commission %" value="0" />
+            <button id="createOfficeBtn" class="btn btn-primary" type="button">Create Office</button>
+          </div>
+          <p class="error" id="officeError"></p>
+          <p class="success-msg" id="officeSuccess"></p>
+        </div>
+
+        <div class="panel">
+          <h3>All Offices</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Office</th>
+                  <th>Payment Link</th>
+                  <th>Commission</th>
+                  <th>Paid</th>
+                  <th>Pending</th>
+                  <th>Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="officesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-view hidden" id="view-users">
+        <div class="page-head">
+          <div>
+            <p class="breadcrumb">Admin / Users</p>
+            <h1>Office Staff Accounts</h1>
+            <p class="sub">Assign secure logins for each office portal.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Create Office User</h3>
+          <div class="form-grid">
+            <select id="userOffice" class="field"></select>
+            <input id="userName" class="field" type="text" placeholder="Username" />
+            <input id="userPass" class="field" type="password" placeholder="Password (min 8)" />
+            <button id="createUserBtn" class="btn btn-primary" type="button">Create User</button>
+          </div>
+          <p class="error" id="userError"></p>
+          <p class="success-msg" id="userSuccess"></p>
+        </div>
+
+        <div class="panel">
+          <h3>Office Users</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Office</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-view hidden" id="view-payments">
+        <div class="page-head">
+          <div>
+            <p class="breadcrumb">Admin / Payments</p>
+            <h1>Global Payment Ledger</h1>
+            <p class="sub">All customer deposits across every office.</p>
+          </div>
+          <input id="paymentSearch" class="field search-field" type="search" placeholder="Search office or status..." />
+        </div>
+
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Office</th>
+                  <th>Gross</th>
+                  <th>Net</th>
+                  <th>Method</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="paymentsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-view hidden" id="view-system">
+        <div class="page-head">
+          <div>
+            <p class="breadcrumb">Admin / System</p>
+            <h1>System Health</h1>
+            <p class="sub">Infrastructure status and security posture.</p>
+          </div>
+        </div>
+
+        <div class="stat-grid" id="systemStats"></div>
+
+        <div class="panel">
+          <h3>Security</h3>
+          <ul class="check-list">
+            <li>HttpOnly session cookies with secure flag in production</li>
+            <li>Passwords hashed with scrypt — never stored in plain text</li>
+            <li>Office users only see their own office data</li>
+            <li>Login rate limiting enabled</li>
+            <li>Payments auto-sync from Alby when hub is online</li>
+          </ul>
+        </div>
+      </section>
+    </main>
   </div>
 
   <script src="/admin.js"></script>

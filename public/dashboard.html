@@ -3,30 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1d4ed8" />
   <title>Office Dashboard — Globa Pay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/brand.css" />
   <link rel="stylesheet" href="/dashboard.css" />
 </head>
 <body>
-  <section id="loginSection" class="login-page">
+  <section id="loginSection" class="login-shell">
     <div class="login-card">
-      <div class="brand-mark">⚡ Globa Pay</div>
+      <div class="brand-logo">
+        <div class="brand-mark">G</div>
+        <div class="brand-text">
+          <strong>Globa Pay</strong>
+          <span>Payment Portal</span>
+        </div>
+      </div>
       <h1>Office Login</h1>
-      <p class="sub">Payment portal for your office</p>
-      <input id="loginUser" type="text" placeholder="Username" autocomplete="username" />
-      <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
-      <button id="loginBtn" type="button" class="btn-primary">Login</button>
+      <p class="sub">Secure access to your office payment dashboard</p>
+      <input id="loginUser" class="field" type="text" placeholder="Username" autocomplete="username" />
+      <input id="loginPass" class="field" type="password" placeholder="Password" autocomplete="current-password" />
+      <button id="loginBtn" type="button" class="btn btn-primary">Sign In</button>
       <p id="adminNotice" class="notice hidden">You are logged in as admin. Logout below so office staff can sign in.</p>
-      <button id="loginLogoutBtn" class="btn-secondary hidden" type="button">Logout Admin</button>
+      <button id="loginLogoutBtn" class="btn btn-secondary hidden" type="button">Logout Admin</button>
       <p class="error" id="loginError"></p>
     </div>
   </section>
 
   <div id="appSection" class="app hidden">
     <aside class="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-icon">⚡</div>
-        <div>
+      <div class="sidebar-brand brand-logo">
+        <div class="brand-mark">G</div>
+        <div class="brand-text">
           <strong>Globa Pay</strong>
           <span>PAYMENT PORTAL</span>
         </div>
