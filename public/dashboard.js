@@ -44,6 +44,7 @@ let dashboardData = null;
 let allPayments = [];
 let monthlyData = null;
 let selectedTheme = "light";
+let dashboardInitialLoad = false;
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -89,6 +90,7 @@ function greeting() {
 function showLogin() {
   loginSection.classList.remove("hidden");
   appSection.classList.add("hidden");
+  dashboardInitialLoad = false;
   if (refreshTimer) {
     clearInterval(refreshTimer);
     refreshTimer = null;
@@ -100,6 +102,7 @@ function showApp() {
   appSection.classList.remove("hidden");
   adminNotice.classList.add("hidden");
   loginLogoutBtn.classList.add("hidden");
+  applyTheme(loadPrefs().theme);
 }
 
 function showAdminLoggedInNotice() {
@@ -392,27 +395,39 @@ function renderDashboard() {
 }
 
 function setDashboardLoading() {
-  document.querySelectorAll(".stat-value").forEach((el) => {
-    el.innerHTML = '<span class="skeleton" style="display:inline-block;width:80px;height:24px"></span>';
+  if (dashboardInitialLoad) return;
+  document.querySelectorAll("#view-dashboard .stat-value").forEach((el) => {
+    el.classList.add("is-loading");
+    el.dataset.prev = el.textContent;
+    el.innerHTML = '<span class="stat-skeleton" aria-hidden="true"></span>';
   });
-  const recentTable = document.getElementById("recentPaymentsTable");
-  if (recentTable) {
-    recentTable.innerHTML = Array.from({ length: 3 })
-      .map(() => `<tr class="skeleton-row">${"<td><div class=\"skeleton\"></div></td>".repeat(5)}</tr>`)
-      .join("");
-  }
 }
 
-async function loadDashboard() {
-  setDashboardLoading();
-  const [summary, paymentsData] = await Promise.all([
-    api("/api/dashboard/summary"),
-    api("/api/dashboard/payments"),
-  ]);
-  dashboardData = summary;
-  allPayments = paymentsData.payments;
-  renderDashboard();
-  initMonthFilters();
+function clearDashboardLoading() {
+  document.querySelectorAll("#view-dashboard .stat-value.is-loading").forEach((el) => {
+    el.classList.remove("is-loading");
+  });
+}
+
+async function loadDashboard({ showLoading = false } = {}) {
+  if (showLoading || !dashboardInitialLoad) {
+    setDashboardLoading();
+  }
+  try {
+    const [summary, paymentsData] = await Promise.all([
+      api("/api/dashboard/summary"),
+      api("/api/dashboard/payments"),
+    ]);
+    dashboardData = summary;
+    allPayments = paymentsData.payments;
+    renderDashboard();
+    if (!dashboardInitialLoad) {
+      initMonthFilters();
+    }
+    dashboardInitialLoad = true;
+  } finally {
+    clearDashboardLoading();
+  }
 }
 
 function getCurrentView() {
@@ -421,7 +436,7 @@ function getCurrentView() {
 }
 
 async function refreshAll() {
-  await loadDashboard();
+  await loadDashboard({ showLoading: false });
   const view = getCurrentView();
   if (view === "monthly") await loadMonthly();
 }
@@ -463,7 +478,7 @@ async function boot() {
     const me = await api("/api/auth/me");
     if (me.user.role === "office") {
       showApp();
-      await refreshAll();
+      await loadDashboard({ showLoading: true });
       startAutoRefresh();
       return;
     }
@@ -491,7 +506,7 @@ loginBtn.addEventListener("click", async () => {
     }
     if (data.user.role !== "office") throw new Error("Office account required");
     showApp();
-    await refreshAll();
+    await loadDashboard({ showLoading: true });
     startAutoRefresh();
   } catch (err) {
     showLogin();
