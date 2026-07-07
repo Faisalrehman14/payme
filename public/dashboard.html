@@ -20,6 +20,10 @@
         <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
       </div>
       <button id="loginBtn" type="button">Login</button>
+      <p id="adminNotice" class="sub hidden" style="color:#ffd27d;margin-top:12px">
+        You are logged in as admin. Logout below so office staff can sign in.
+      </p>
+      <button id="loginLogoutBtn" class="secondary hidden" type="button" style="margin-top:8px">Logout Admin</button>
       <p class="error" id="loginError"></p>
       <p class="sub" style="margin-top:16px">
         Admin? <a href="/admin">Go to admin portal</a>

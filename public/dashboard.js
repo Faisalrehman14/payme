@@ -4,6 +4,8 @@ const loginUser = document.getElementById("loginUser");
 const loginPass = document.getElementById("loginPass");
 const loginBtn = document.getElementById("loginBtn");
 const loginError = document.getElementById("loginError");
+const loginLogoutBtn = document.getElementById("loginLogoutBtn");
+const adminNotice = document.getElementById("adminNotice");
 const logoutBtn = document.getElementById("logoutBtn");
 const officeTitle = document.getElementById("officeTitle");
 const payLink = document.getElementById("payLink");
@@ -45,15 +47,13 @@ function showLogin() {
 function showApp() {
   loginSection.classList.add("hidden");
   appSection.classList.remove("hidden");
+  adminNotice.classList.add("hidden");
+  loginLogoutBtn.classList.add("hidden");
 }
 
-function renderStats(stats) {
-  statsEl.innerHTML = `
-    <div class="stat"><div class="label">Paid</div><div class="value">${stats.paidCount}</div></div>
-    <div class="stat"><div class="label">Pending</div><div class="value">${stats.pendingCount}</div></div>
-    <div class="stat"><div class="label">Total USD</div><div class="value">$${stats.totalUsd.toFixed(2)}</div></div>
-    <div class="stat"><div class="label">All attempts</div><div class="value">${stats.totalPayments}</div></div>
-  `;
+function showAdminLoggedInNotice() {
+  adminNotice.classList.remove("hidden");
+  loginLogoutBtn.classList.remove("hidden");
 }
 
 async function loadDashboard() {
@@ -79,16 +79,28 @@ async function loadDashboard() {
     .join("") || `<tr><td colspan="4">No payments yet — share your link with customers</td></tr>`;
 }
 
+function renderStats(stats) {
+  statsEl.innerHTML = `
+    <div class="stat"><div class="label">Paid</div><div class="value">${stats.paidCount}</div></div>
+    <div class="stat"><div class="label">Pending</div><div class="value">${stats.pendingCount}</div></div>
+    <div class="stat"><div class="label">Total USD</div><div class="value">$${stats.totalUsd.toFixed(2)}</div></div>
+    <div class="stat"><div class="label">All attempts</div><div class="value">${stats.totalPayments}</div></div>
+  `;
+}
+
 async function boot() {
   try {
     const me = await api("/api/auth/me");
-    if (me.user.role === "admin") {
-      window.location.href = "/admin";
+    if (me.user.role === "office") {
+      showApp();
+      await loadDashboard();
+      refreshTimer = setInterval(loadDashboard, 15000);
       return;
     }
-    showApp();
-    await loadDashboard();
-    refreshTimer = setInterval(loadDashboard, 15000);
+    showLogin();
+    if (me.user.role === "admin") {
+      showAdminLoggedInNotice();
+    }
   } catch {
     showLogin();
   }
@@ -105,7 +117,8 @@ loginBtn.addEventListener("click", async () => {
       }),
     });
     if (data.user.role === "admin") {
-      window.location.href = "/admin";
+      loginError.textContent = "This is an admin account. Use /admin instead.";
+      showAdminLoggedInNotice();
       return;
     }
     if (data.user.role !== "office") {
@@ -118,6 +131,15 @@ loginBtn.addEventListener("click", async () => {
     showLogin();
     loginError.textContent = err.message;
   }
+});
+
+loginLogoutBtn.addEventListener("click", async () => {
+  await api("/api/auth/logout", { method: "POST" });
+  adminNotice.classList.add("hidden");
+  loginLogoutBtn.classList.add("hidden");
+  loginError.textContent = "";
+  loginUser.value = "";
+  loginPass.value = "";
 });
 
 loginPass.addEventListener("keydown", (e) => {
