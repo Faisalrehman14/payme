@@ -31,6 +31,13 @@ const userSuccess = document.getElementById("userSuccess");
 const usersTable = document.getElementById("usersTable");
 const paymentsTable = document.getElementById("paymentsTable");
 const auditTable = document.getElementById("auditTable");
+const siteContactEmail = document.getElementById("siteContactEmail");
+const siteContactHeadline = document.getElementById("siteContactHeadline");
+const siteContactMessage = document.getElementById("siteContactMessage");
+const saveSiteSettingsBtn = document.getElementById("saveSiteSettingsBtn");
+const siteSettingsError = document.getElementById("siteSettingsError");
+const siteSettingsSuccess = document.getElementById("siteSettingsSuccess");
+const siteSettingsUpdated = document.getElementById("siteSettingsUpdated");
 
 let refreshTimer = null;
 let allPayments = [];
@@ -154,6 +161,16 @@ function renderOverview(overview) {
   liveBadge.textContent = `Live · ${new Date().toLocaleTimeString()}`;
 }
 
+function renderSiteSettings(settings) {
+  if (!settings || !siteContactEmail) return;
+  siteContactEmail.value = settings.contactEmail || "";
+  siteContactHeadline.value = settings.contactHeadline || "";
+  siteContactMessage.value = settings.contactMessage || "";
+  if (siteSettingsUpdated && settings.updatedAt) {
+    siteSettingsUpdated.textContent = `Last updated: ${fmtTime(settings.updatedAt)}`;
+  }
+}
+
 function renderAudit(logs) {
   if (!auditTable) return;
   auditTable.innerHTML =
@@ -250,12 +267,13 @@ function renderPayments(payments) {
 
 async function loadAll() {
   setLoading();
-  const [overview, officesData, usersData, paymentsData, auditData] = await Promise.all([
+  const [overview, officesData, usersData, paymentsData, auditData, settingsData] = await Promise.all([
     api("/api/admin/overview"),
     api("/api/admin/offices"),
     api("/api/admin/users"),
     api("/api/admin/payments"),
     api("/api/admin/audit").catch(() => ({ logs: [] })),
+    api("/api/admin/settings").catch(() => ({ settings: null })),
   ]);
 
   allPayments = paymentsData.payments;
@@ -265,6 +283,7 @@ async function loadAll() {
   renderUsers(usersData.users);
   renderPayments(allPayments);
   renderAudit(auditLogs);
+  renderSiteSettings(settingsData.settings);
 }
 
 async function boot() {
@@ -442,6 +461,25 @@ usersTable.addEventListener("click", async (e) => {
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && !appSection.classList.contains("hidden")) loadAll();
+});
+
+saveSiteSettingsBtn?.addEventListener("click", async () => {
+  siteSettingsError.textContent = "";
+  siteSettingsSuccess.textContent = "";
+  try {
+    const data = await api("/api/admin/settings", {
+      method: "PATCH",
+      body: JSON.stringify({
+        contactEmail: siteContactEmail.value.trim(),
+        contactHeadline: siteContactHeadline.value.trim(),
+        contactMessage: siteContactMessage.value.trim(),
+      }),
+    });
+    renderSiteSettings(data.settings);
+    siteSettingsSuccess.textContent = "Site settings saved — landing page updated.";
+  } catch (err) {
+    siteSettingsError.textContent = err.message;
+  }
 });
 
 boot();

@@ -219,4 +219,32 @@ router.get("/audit", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+router.get("/settings", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const settings = await db.getPlatformSettings();
+    res.json({ settings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch("/settings", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { contactEmail, contactHeadline, contactMessage } = req.body || {};
+    const settings = await db.updatePlatformSettings({
+      contactEmail,
+      contactHeadline,
+      contactMessage,
+    });
+    await logAudit(req, "settings.update", {
+      targetType: "platform",
+      targetId: "settings",
+      details: { contactEmail: settings.contactEmail },
+    });
+    res.json({ settings });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 module.exports = router;

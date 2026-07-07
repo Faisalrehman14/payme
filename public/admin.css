@@ -113,6 +113,32 @@
   border-radius: 8px;
 }
 
+.site-settings-grid {
+  margin-top: 12px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.field-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.field-group textarea.field {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
 @media (max-width: 900px) {
   .admin-app { grid-template-columns: 1fr; }
   .admin-sidebar { position: sticky; top: 0; z-index: 3; }

@@ -63,6 +63,14 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS platform_settings (
+  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  contact_email TEXT NOT NULL DEFAULT 'payments@globapay.com',
+  contact_headline TEXT NOT NULL DEFAULT 'Want to receive Cash App payments?',
+  contact_message TEXT NOT NULL DEFAULT 'Contact us to set up your office with a dedicated payment link, secure dashboard, and real-time commission tracking.',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `;
 
 function slugify(name) {
@@ -138,8 +146,75 @@ async function init() {
     "ALTER TABLE offices ADD COLUMN IF NOT EXISTS commission_percent NUMERIC(5, 2) NOT NULL DEFAULT 0"
   );
   await pool.query("DELETE FROM sessions WHERE expires_at <= $1", [Date.now()]);
+  await seedPlatformSettings();
   await migrateJsonIfNeeded();
   console.log("✓ PostgreSQL connected and schema ready");
+}
+
+const DEFAULT_PLATFORM_SETTINGS = {
+  contactEmail: process.env.CONTACT_EMAIL || "payments@globapay.com",
+  contactHeadline: "Want to receive Cash App payments?",
+  contactMessage:
+    "Contact us to set up your office with a dedicated payment link, secure dashboard, and real-time commission tracking.",
+};
+
+function mapPlatformSettings(row) {
+  if (!row) return { ...DEFAULT_PLATFORM_SETTINGS };
+  return {
+    contactEmail: row.contact_email,
+    contactHeadline: row.contact_headline,
+    contactMessage: row.contact_message,
+    updatedAt: row.updated_at?.toISOString?.() || null,
+  };
+}
+
+async function seedPlatformSettings() {
+  const envEmail = process.env.CONTACT_EMAIL;
+  await pool.query(
+    `INSERT INTO platform_settings (id, contact_email, contact_headline, contact_message)
+     VALUES (1, $1, $2, $3)
+     ON CONFLICT (id) DO NOTHING`,
+    [
+      envEmail || DEFAULT_PLATFORM_SETTINGS.contactEmail,
+      DEFAULT_PLATFORM_SETTINGS.contactHeadline,
+      DEFAULT_PLATFORM_SETTINGS.contactMessage,
+    ]
+  );
+}
+
+async function getPlatformSettings() {
+  const { rows } = await pool.query("SELECT * FROM platform_settings WHERE id = 1 LIMIT 1");
+  if (!rows.length) {
+    await seedPlatformSettings();
+    return { ...DEFAULT_PLATFORM_SETTINGS };
+  }
+  return mapPlatformSettings(rows[0]);
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function updatePlatformSettings(patch) {
+  const current = await getPlatformSettings();
+  const contactEmail = patch.contactEmail?.trim() || current.contactEmail;
+  const contactHeadline = patch.contactHeadline?.trim() || current.contactHeadline;
+  const contactMessage = patch.contactMessage?.trim() || current.contactMessage;
+
+  if (!isValidEmail(contactEmail)) {
+    throw new Error("Valid contact email required");
+  }
+  if (!contactHeadline) throw new Error("Contact headline required");
+  if (!contactMessage) throw new Error("Contact message required");
+
+  const { rows } = await pool.query(
+    `UPDATE platform_settings
+     SET contact_email = $1, contact_headline = $2, contact_message = $3, updated_at = NOW()
+     WHERE id = 1
+     RETURNING *`,
+    [contactEmail, contactHeadline, contactMessage]
+  );
+  return mapPlatformSettings(rows[0]);
 }
 
 async function healthCheck() {
@@ -684,5 +759,7 @@ module.exports = {
   getOfficeStats,
   createAuditLog,
   listAuditLogs,
+  getPlatformSettings,
+  updatePlatformSettings,
   slugify,
 };

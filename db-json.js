@@ -11,6 +11,15 @@ const DEFAULT_DB = {
   payments: [],
   sessions: [],
   auditLogs: [],
+  platformSettings: null,
+};
+
+const DEFAULT_PLATFORM_SETTINGS = {
+  contactEmail: process.env.CONTACT_EMAIL || "payments@globapay.com",
+  contactHeadline: "Want to receive Cash App payments?",
+  contactMessage:
+    "Contact us to set up your office with a dedicated payment link, secure dashboard, and real-time commission tracking.",
+  updatedAt: null,
 };
 
 function ensureDataDir() {
@@ -78,7 +87,46 @@ function verifyPassword(password, stored) {
 }
 
 async function init() {
+  const db = readDb();
+  if (!db.platformSettings) {
+    updateDb((d) => {
+      d.platformSettings = { ...DEFAULT_PLATFORM_SETTINGS };
+    });
+  }
   console.log("→ Using JSON file storage (set DATABASE_URL for PostgreSQL)");
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function getPlatformSettings() {
+  const db = readDb();
+  return db.platformSettings || { ...DEFAULT_PLATFORM_SETTINGS };
+}
+
+async function updatePlatformSettings(patch) {
+  const current = await getPlatformSettings();
+  const contactEmail = patch.contactEmail?.trim() || current.contactEmail;
+  const contactHeadline = patch.contactHeadline?.trim() || current.contactHeadline;
+  const contactMessage = patch.contactMessage?.trim() || current.contactMessage;
+
+  if (!isValidEmail(contactEmail)) {
+    throw new Error("Valid contact email required");
+  }
+  if (!contactHeadline) throw new Error("Contact headline required");
+  if (!contactMessage) throw new Error("Contact message required");
+
+  const updated = {
+    contactEmail,
+    contactHeadline,
+    contactMessage,
+    updatedAt: new Date().toISOString(),
+  };
+  updateDb((d) => {
+    d.platformSettings = updated;
+  });
+  return updated;
 }
 
 async function healthCheck() {
@@ -474,5 +522,7 @@ module.exports = {
   getOfficeStats,
   createAuditLog,
   listAuditLogs,
+  getPlatformSettings,
+  updatePlatformSettings,
   slugify,
 };

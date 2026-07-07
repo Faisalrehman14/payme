@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1d4ed8" />
+  <meta name="description" content="Globa Pay — professional Cash App payment portal for offices with commission tracking and secure dashboards." />
   <title>Globa Pay — Professional Payment Portal</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/brand.css" />
@@ -20,51 +21,99 @@
         </div>
       </div>
       <nav>
+        <a href="#features">Features</a>
+        <a href="#contact">Contact</a>
         <a href="/dashboard">Office Portal</a>
         <a href="/admin" class="btn btn-primary">Admin Login</a>
       </nav>
     </header>
 
     <section class="hero-landing">
-      <div>
+      <div class="hero-copy">
+        <p class="hero-eyebrow">Trusted payment infrastructure</p>
         <h1>Professional payment portal for every office.</h1>
-        <p>Accept Cash App payments, track commissions, and give each office its own secure dashboard — powered by Globa Pay.</p>
+        <p class="hero-lead">Accept Cash App payments, track commissions, and give each office its own secure dashboard — powered by Globa Pay.</p>
         <div class="hero-actions">
-          <a href="/admin" class="btn btn-primary">Launch Admin</a>
+          <a href="#contact" class="btn btn-primary">Get Started</a>
           <a href="/dashboard" class="btn btn-outline">Office Login</a>
+        </div>
+        <div class="hero-trust">
+          <span>🔒 Encrypted sessions</span>
+          <span>⚡ Live payment sync</span>
+          <span>📊 Commission tracking</span>
         </div>
       </div>
       <div class="hero-card panel">
         <h3>How it works</h3>
-        <ol>
-          <li>Admin creates an office and sets commission %</li>
-          <li>Office gets a unique payment link</li>
-          <li>Customer pays via Cash App</li>
-          <li>Office dashboard updates automatically</li>
+        <ol class="steps-list">
+          <li><span>1</span> Admin creates an office and sets commission %</li>
+          <li><span>2</span> Office gets a unique payment link</li>
+          <li><span>3</span> Customer pays via Cash App</li>
+          <li><span>4</span> Office dashboard updates automatically</li>
         </ol>
         <p class="sub">Example link: <code>/pay/your-office</code></p>
       </div>
     </section>
 
-    <section class="features">
+    <section class="features" id="features">
       <div class="panel feature-card">
+        <div class="feature-icon">🏢</div>
         <h3>Multi-Office Control</h3>
         <p class="sub">Separate links, users, and revenue for every location.</p>
       </div>
       <div class="panel feature-card">
+        <div class="feature-icon">📈</div>
         <h3>Commission Engine</h3>
         <p class="sub">Admin assigns % — office sees gross vs net instantly.</p>
       </div>
       <div class="panel feature-card">
+        <div class="feature-icon">🛡️</div>
         <h3>Secure & Reliable</h3>
         <p class="sub">Encrypted sessions, rate-limited login, live payment sync.</p>
       </div>
     </section>
 
+    <section class="contact-cta" id="contact">
+      <div class="contact-inner panel">
+        <div class="contact-copy">
+          <p class="contact-eyebrow">Onboarding</p>
+          <h2 id="contactHeadline">Want to receive Cash App payments?</h2>
+          <p id="contactMessage" class="contact-lead">
+            Contact us to set up your office with a dedicated payment link, secure dashboard, and real-time commission tracking.
+          </p>
+          <div class="contact-actions">
+            <a id="contactEmailLink" class="btn btn-primary contact-email-btn" href="mailto:payments@globapay.com">
+              <span class="email-icon">✉</span>
+              <span id="contactEmailText">payments@globapay.com</span>
+            </a>
+            <button type="button" class="btn btn-outline" id="copyEmailBtn">Copy Email</button>
+          </div>
+          <p class="contact-note">Our team will configure your office, payment link, and staff login.</p>
+        </div>
+        <div class="contact-card-side">
+          <h4>What you get</h4>
+          <ul>
+            <li>Branded payment page for customers</li>
+            <li>Office dashboard with live stats</li>
+            <li>Monthly reports & CSV export</li>
+            <li>Admin-controlled commission %</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <footer class="landing-foot">
-      <span>© Globa Pay</span>
-      <span>Cash App payments · Lightning settlement</span>
+      <div class="foot-brand">
+        <div class="brand-mark sm">G</div>
+        <span>© Globa Pay</span>
+      </div>
+      <div class="foot-links">
+        <a id="footerEmailLink" href="mailto:payments@globapay.com">payments@globapay.com</a>
+        <span>Cash App payments · Lightning settlement</span>
+      </div>
     </footer>
   </div>
+
+  <script src="/landing.js"></script>
 </body>
 </html>

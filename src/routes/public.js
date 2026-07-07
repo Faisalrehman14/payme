@@ -17,6 +17,19 @@ const { getSyncStatus } = require("../worker/sync-worker");
 
 const router = express.Router();
 
+router.get("/settings/landing", async (_req, res) => {
+  try {
+    const settings = await db.getPlatformSettings();
+    res.json({
+      contactEmail: settings.contactEmail,
+      contactHeadline: settings.contactHeadline,
+      contactMessage: settings.contactMessage,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/offices/:slug", async (req, res) => {
   try {
     const office = await db.getOfficeBySlugAny(req.params.slug);

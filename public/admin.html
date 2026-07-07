@@ -245,6 +245,29 @@
         <div class="stat-grid" id="systemStats"></div>
 
         <div class="panel">
+          <h3>Site Settings — Landing Page Contact</h3>
+          <p class="sub">Shown on the public homepage for offices that want to receive Cash App payments.</p>
+          <div class="form-grid site-settings-grid">
+            <div class="field-group">
+              <label for="siteContactEmail">Contact Email</label>
+              <input id="siteContactEmail" class="field" type="email" placeholder="payments@yourcompany.com" />
+            </div>
+            <div class="field-group full-width">
+              <label for="siteContactHeadline">Headline</label>
+              <input id="siteContactHeadline" class="field" type="text" placeholder="Want to receive Cash App payments?" />
+            </div>
+            <div class="field-group full-width">
+              <label for="siteContactMessage">Message</label>
+              <textarea id="siteContactMessage" class="field" rows="3" placeholder="Contact us to set up your office..."></textarea>
+            </div>
+            <button type="button" class="btn btn-primary" id="saveSiteSettingsBtn">Save Site Settings</button>
+          </div>
+          <p class="error" id="siteSettingsError"></p>
+          <p class="success-msg" id="siteSettingsSuccess"></p>
+          <p class="sub" id="siteSettingsUpdated"></p>
+        </div>
+
+        <div class="panel">
           <h3>Security</h3>
           <ul class="check-list">
             <li>HttpOnly session cookies with secure flag in production</li>
