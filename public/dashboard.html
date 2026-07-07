@@ -230,11 +230,41 @@
       </section>
 
       <section class="view hidden" id="view-checkout">
-        <div class="panel">
-          <h2>My Checkout Link</h2>
-          <p class="sub">Share this link with your customers</p>
-          <div class="link-box" id="payLink">—</div>
-          <button type="button" class="btn-primary" id="checkoutCopyBtn" style="margin-top:12px">Copy Link</button>
+        <div class="checkout-head">
+          <h1>My Checkout Link</h1>
+          <p class="sub">Share this link with customers to receive Cash App payments instantly.</p>
+        </div>
+
+        <div class="checkout-grid">
+          <div class="checkout-left">
+            <div class="panel checkout-card">
+              <h3>Your Payment Link</h3>
+              <div class="link-row">
+                <input id="checkoutLinkInput" type="text" readonly value="—" />
+                <button type="button" class="btn-primary btn-copy-inline" id="checkoutCopyBtn">Copy</button>
+              </div>
+              <div class="checkout-actions">
+                <button type="button" class="btn-outline" id="checkoutOpenBtn">Open Link</button>
+                <button type="button" class="btn-outline" id="checkoutShareBtn">Share</button>
+              </div>
+            </div>
+
+            <div class="panel checkout-card">
+              <h3>Customer Instructions</h3>
+              <p class="sub">Copy this message and send to your customers</p>
+              <div class="instruction-box" id="customerMessage">—</div>
+              <button type="button" class="btn-export" id="copyMessageBtn">Copy Message</button>
+            </div>
+          </div>
+
+          <div class="panel checkout-card checkout-qr-card">
+            <h3>QR Code</h3>
+            <div class="qr-frame">
+              <img id="checkoutQr" alt="Payment QR code" />
+            </div>
+            <p class="qr-title">Scan to Pay</p>
+            <p class="sub">Customers can scan this QR code to open your payment page. Print it or share digitally.</p>
+          </div>
         </div>
       </section>
 

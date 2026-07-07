@@ -15,6 +15,12 @@ const monthSelect = document.getElementById("monthSelect");
 const yearSelect = document.getElementById("yearSelect");
 const monthFilterBtn = document.getElementById("monthFilterBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
+const checkoutLinkInput = document.getElementById("checkoutLinkInput");
+const checkoutOpenBtn = document.getElementById("checkoutOpenBtn");
+const checkoutShareBtn = document.getElementById("checkoutShareBtn");
+const copyMessageBtn = document.getElementById("copyMessageBtn");
+const customerMessage = document.getElementById("customerMessage");
+const checkoutQr = document.getElementById("checkoutQr");
 
 let refreshTimer = null;
 let dashboardData = null;
@@ -118,6 +124,25 @@ function renderPaymentsTable(tbody, payments, commission, filter = "") {
     `<tr><td colspan="5">No payments yet</td></tr>`;
 }
 
+function buildCustomerMessage(link) {
+  return `Use this link to pay:
+
+${link}
+
+1. Open the payment link
+2. Select the amount
+3. Pay via Cash App
+4. Complete the payment`;
+}
+
+function renderCheckout() {
+  if (!dashboardData?.payLink) return;
+  const link = dashboardData.payLink;
+  checkoutLinkInput.value = link;
+  customerMessage.textContent = buildCustomerMessage(link);
+  checkoutQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(link)}`;
+}
+
 function setView(view) {
   document.querySelectorAll(".view").forEach((el) => el.classList.add("hidden"));
   document.getElementById(`view-${view}`).classList.remove("hidden");
@@ -125,6 +150,7 @@ function setView(view) {
     btn.classList.toggle("active", btn.dataset.view === view);
   });
   if (view === "monthly") loadMonthly();
+  if (view === "checkout") renderCheckout();
 }
 
 function initMonthFilters() {
@@ -273,7 +299,6 @@ function renderDashboard() {
   document.getElementById("userName").textContent = user.username;
   document.getElementById("userAvatar").textContent = user.username.charAt(0).toUpperCase();
   document.getElementById("sidebarCommission").textContent = pct(commission);
-  document.getElementById("payLink").textContent = payLink;
 
   document.getElementById("todayGross").textContent = money(stats.todayGross);
   document.getElementById("todayGrossSub").textContent = `Before ${pct(commission)} commission`;
@@ -302,6 +327,7 @@ function renderDashboard() {
     searchInput.value
   );
   renderPaymentsTable(document.getElementById("historyPaymentsTable"), allPayments, commission);
+  renderCheckout();
 }
 
 async function loadDashboard() {
@@ -321,6 +347,24 @@ async function copyPayLink() {
   copyLinkBtn.textContent = "Copied!";
   setTimeout(() => {
     copyLinkBtn.textContent = "Copy Payment Link";
+  }, 2000);
+}
+
+async function copyCheckoutLink() {
+  if (!dashboardData?.payLink) return;
+  await navigator.clipboard.writeText(dashboardData.payLink);
+  checkoutCopyBtn.textContent = "Copied!";
+  setTimeout(() => {
+    checkoutCopyBtn.textContent = "Copy";
+  }, 2000);
+}
+
+async function copyCustomerMessage() {
+  if (!dashboardData?.payLink) return;
+  await navigator.clipboard.writeText(buildCustomerMessage(dashboardData.payLink));
+  copyMessageBtn.textContent = "Copied!";
+  setTimeout(() => {
+    copyMessageBtn.textContent = "Copy Message";
   }, 2000);
 }
 
@@ -380,7 +424,28 @@ logoutBtn.addEventListener("click", async () => {
 });
 
 copyLinkBtn.addEventListener("click", copyPayLink);
-checkoutCopyBtn.addEventListener("click", copyPayLink);
+checkoutCopyBtn.addEventListener("click", copyCheckoutLink);
+copyMessageBtn.addEventListener("click", copyCustomerMessage);
+checkoutOpenBtn.addEventListener("click", () => {
+  if (dashboardData?.payLink) window.open(dashboardData.payLink, "_blank");
+});
+checkoutShareBtn.addEventListener("click", async () => {
+  if (!dashboardData?.payLink) return;
+  const text = buildCustomerMessage(dashboardData.payLink);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Globa Pay", text, url: dashboardData.payLink });
+      return;
+    } catch {
+      // fall through to copy
+    }
+  }
+  await navigator.clipboard.writeText(text);
+  checkoutShareBtn.textContent = "Copied!";
+  setTimeout(() => {
+    checkoutShareBtn.textContent = "Share";
+  }, 2000);
+});
 heroShareBtn.addEventListener("click", copyPayLink);
 
 searchInput.addEventListener("input", () => renderDashboard());
