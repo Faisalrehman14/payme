@@ -21,11 +21,28 @@ const checkoutShareBtn = document.getElementById("checkoutShareBtn");
 const copyMessageBtn = document.getElementById("copyMessageBtn");
 const customerMessage = document.getElementById("customerMessage");
 const checkoutQr = document.getElementById("checkoutQr");
+const timezoneSelect = document.getElementById("timezoneSelect");
+const themeLightBtn = document.getElementById("themeLightBtn");
+const themeDarkBtn = document.getElementById("themeDarkBtn");
+const savePrefsBtn = document.getElementById("savePrefsBtn");
+const prefsMsg = document.getElementById("prefsMsg");
+const currentPassword = document.getElementById("currentPassword");
+const newPassword = document.getElementById("newPassword");
+const confirmPassword = document.getElementById("confirmPassword");
+const updatePasswordBtn = document.getElementById("updatePasswordBtn");
+const passwordMsg = document.getElementById("passwordMsg");
+const infoUsername = document.getElementById("infoUsername");
+const infoTimezone = document.getElementById("infoTimezone");
+const infoTheme = document.getElementById("infoTheme");
+const infoCommission = document.getElementById("infoCommission");
+
+const PREF_KEY = "globapay_prefs";
 
 let refreshTimer = null;
 let dashboardData = null;
 let allPayments = [];
 let monthlyData = null;
+let selectedTheme = "light";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -124,6 +141,45 @@ function renderPaymentsTable(tbody, payments, commission, filter = "") {
     `<tr><td colspan="5">No payments yet</td></tr>`;
 }
 
+function loadPrefs() {
+  try {
+    const prefs = JSON.parse(localStorage.getItem(PREF_KEY));
+    return prefs || { timezone: "Asia/Karachi", theme: "light" };
+  } catch {
+    return { timezone: "Asia/Karachi", theme: "light" };
+  }
+}
+
+function savePrefs(prefs) {
+  localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+}
+
+function timezoneLabel(tz) {
+  return tz === "UTC" ? "UTC" : "GMT+5";
+}
+
+function themeLabel(theme) {
+  return theme === "dark" ? "Dark Mode" : "Light Mode";
+}
+
+function applyTheme(theme) {
+  selectedTheme = theme;
+  document.body.classList.toggle("dashboard-dark", theme === "dark");
+  themeLightBtn.classList.toggle("active", theme === "light");
+  themeDarkBtn.classList.toggle("active", theme === "dark");
+}
+
+function renderSettings() {
+  if (!dashboardData) return;
+  const prefs = loadPrefs();
+  timezoneSelect.value = prefs.timezone;
+  applyTheme(prefs.theme);
+  infoUsername.textContent = dashboardData.user.username;
+  infoTimezone.textContent = timezoneLabel(prefs.timezone);
+  infoTheme.textContent = themeLabel(prefs.theme);
+  infoCommission.textContent = pct(dashboardData.stats.commissionPercent || 0);
+}
+
 function buildCustomerMessage(link) {
   return `Use this link to pay:
 
@@ -151,6 +207,7 @@ function setView(view) {
   });
   if (view === "monthly") loadMonthly();
   if (view === "checkout") renderCheckout();
+  if (view === "settings") renderSettings();
 }
 
 function initMonthFilters() {
@@ -315,10 +372,6 @@ function renderDashboard() {
   document.getElementById("afterPctHeader").textContent = `AFTER ${pct(commission)}`;
   document.getElementById("historyAfterHeader").textContent = `AFTER ${pct(commission)}`;
 
-  document.getElementById("settingsUser").textContent = user.username;
-  document.getElementById("settingsOffice").textContent = office.name;
-  document.getElementById("settingsCommission").textContent = pct(commission);
-
   const todayPayments = allPayments.filter((p) => isToday(p.settledAt || p.createdAt));
   renderPaymentsTable(
     document.getElementById("todayPaymentsTable"),
@@ -328,6 +381,7 @@ function renderDashboard() {
   );
   renderPaymentsTable(document.getElementById("historyPaymentsTable"), allPayments, commission);
   renderCheckout();
+  renderSettings();
 }
 
 async function loadDashboard() {
@@ -453,6 +507,46 @@ searchInput.addEventListener("input", () => renderDashboard());
 monthFilterBtn.addEventListener("click", loadMonthly);
 exportCsvBtn.addEventListener("click", exportMonthlyCsv);
 
+themeLightBtn.addEventListener("click", () => applyTheme("light"));
+themeDarkBtn.addEventListener("click", () => applyTheme("dark"));
+
+savePrefsBtn.addEventListener("click", () => {
+  const prefs = { timezone: timezoneSelect.value, theme: selectedTheme };
+  savePrefs(prefs);
+  renderSettings();
+  prefsMsg.style.color = "#16a34a";
+  prefsMsg.textContent = "Preferences saved";
+});
+
+updatePasswordBtn.addEventListener("click", async () => {
+  passwordMsg.textContent = "";
+  passwordMsg.style.color = "#dc2626";
+  if (newPassword.value !== confirmPassword.value) {
+    passwordMsg.textContent = "New passwords do not match";
+    return;
+  }
+  if (newPassword.value.length < 8) {
+    passwordMsg.textContent = "New password must be at least 8 characters";
+    return;
+  }
+  try {
+    await api("/api/dashboard/password", {
+      method: "PATCH",
+      body: JSON.stringify({
+        currentPassword: currentPassword.value,
+        newPassword: newPassword.value,
+      }),
+    });
+    currentPassword.value = "";
+    newPassword.value = "";
+    confirmPassword.value = "";
+    passwordMsg.style.color = "#16a34a";
+    passwordMsg.textContent = "Password updated successfully";
+  } catch (err) {
+    passwordMsg.textContent = err.message;
+  }
+});
+
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => setView(btn.dataset.view));
 });
@@ -468,4 +562,5 @@ loginUser.addEventListener("keydown", (e) => {
   if (e.key === "Enter") loginBtn.click();
 });
 
+applyTheme(loadPrefs().theme);
 boot();

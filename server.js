@@ -523,6 +523,26 @@ app.get("/api/dashboard/monthly", requireAuth, requireOffice, async (req, res) =
   }
 });
 
+app.patch("/api/dashboard/password", requireAuth, requireOffice, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Current and new password required" });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: "New password must be at least 8 characters" });
+    }
+    const user = await db.findUserByUsername(req.user.username);
+    if (!user || !db.verifyPassword(currentPassword, user.passwordHash)) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+    await db.updateOfficeUserPassword(user.id, newPassword);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 function reqBaseUrl(req) {
   const proto = req.headers["x-forwarded-proto"] || req.protocol;
   const host = req.headers["x-forwarded-host"] || req.get("host");

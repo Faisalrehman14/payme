@@ -269,12 +269,93 @@
       </section>
 
       <section class="view hidden" id="view-settings">
-        <div class="panel">
-          <h2>Account Settings</h2>
-          <div class="settings-list">
-            <div><span>Username</span><strong id="settingsUser">—</strong></div>
-            <div><span>Office</span><strong id="settingsOffice">—</strong></div>
-            <div><span>Commission Rate</span><strong id="settingsCommission">0%</strong></div>
+        <div class="settings-head">
+          <div>
+            <p class="breadcrumb">Dashboard / Settings</p>
+            <h1>⚙️ Account Settings</h1>
+            <p class="sub">Customize your timezone, appearance, and security.</p>
+          </div>
+        </div>
+
+        <div class="settings-grid-top">
+          <div class="panel settings-card">
+            <div class="settings-card-head blue">
+              <span class="settings-icon">☰</span>
+              <div>
+                <h3>Preferences</h3>
+                <p class="sub">Timezone and appearance</p>
+              </div>
+            </div>
+            <label class="field-label">Preferred Timezone</label>
+            <select id="timezoneSelect" class="settings-input">
+              <option value="Asia/Karachi">GMT+5 (Pakistan Standard Time)</option>
+              <option value="UTC">UTC (Coordinated Universal Time)</option>
+            </select>
+
+            <label class="field-label">Appearance</label>
+            <div class="theme-picker">
+              <button type="button" class="theme-option active" data-theme="light" id="themeLightBtn">
+                <span>☀️</span>
+                <strong>Light Mode</strong>
+              </button>
+              <button type="button" class="theme-option" data-theme="dark" id="themeDarkBtn">
+                <span>🌙</span>
+                <strong>Dark Mode</strong>
+              </button>
+            </div>
+
+            <button type="button" class="btn-primary settings-save" id="savePrefsBtn">✓ Save Preferences</button>
+            <p class="error" id="prefsMsg"></p>
+          </div>
+
+          <div class="panel settings-card">
+            <div class="settings-card-head red">
+              <span class="settings-icon">🔒</span>
+              <div>
+                <h3>Security</h3>
+                <p class="sub">Update your password</p>
+              </div>
+            </div>
+            <label class="field-label">Current Password</label>
+            <input id="currentPassword" type="password" class="settings-input" placeholder="Enter current password" />
+
+            <label class="field-label">New Password</label>
+            <input id="newPassword" type="password" class="settings-input" placeholder="Min 8 characters" />
+
+            <label class="field-label">Confirm New Password</label>
+            <input id="confirmPassword" type="password" class="settings-input" placeholder="Repeat new password" />
+
+            <button type="button" class="btn-danger settings-save" id="updatePasswordBtn">🛡 Update Password</button>
+            <p class="error" id="passwordMsg"></p>
+          </div>
+        </div>
+
+        <div class="panel settings-card">
+          <div class="settings-card-head blue">
+            <span class="settings-icon">👤</span>
+            <div>
+              <h3>Account Info</h3>
+              <p class="sub">Your office account details</p>
+            </div>
+          </div>
+          <div class="account-info-grid">
+            <div class="info-tile">
+              <div class="info-label">USERNAME</div>
+              <div class="info-value" id="infoUsername">—</div>
+            </div>
+            <div class="info-tile">
+              <div class="info-label">TIMEZONE</div>
+              <div class="info-value" id="infoTimezone">GMT+5</div>
+            </div>
+            <div class="info-tile">
+              <div class="info-label">THEME</div>
+              <div class="info-value" id="infoTheme">Light Mode</div>
+            </div>
+            <div class="info-tile">
+              <div class="info-label">COMMISSION RATE</div>
+              <div class="info-value commission-value" id="infoCommission">0.00%</div>
+              <div class="info-sub">Set by administrator</div>
+            </div>
           </div>
         </div>
       </section>
