@@ -1,5 +1,5 @@
 const db = require("../../db");
-const { SESSION_COOKIE, LOGIN_WINDOW_MS, LOGIN_MAX_ATTEMPTS } = require("../config");
+const { SESSION_COOKIE, LOGIN_WINDOW_MS, LOGIN_MAX_ATTEMPTS, PUBLIC_BASE_URL } = require("../config");
 
 const loginAttempts = new Map();
 
@@ -115,6 +115,7 @@ function clearLoginAttempts(ip) {
 }
 
 function reqBaseUrl(req) {
+  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL;
   const proto = req.headers["x-forwarded-proto"] || req.protocol;
   const host = req.headers["x-forwarded-host"] || req.get("host");
   return `${proto}://${host}`;

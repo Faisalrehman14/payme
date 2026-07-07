@@ -17,6 +17,10 @@ const ALBY_TOKEN = (process.env.ALBY_API_TOKEN || "")
   .trim()
   .replace(/^["']|["']$/g, "");
 
+const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "")
+  .trim()
+  .replace(/\/$/, "");
+
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
 module.exports = {
@@ -29,5 +33,6 @@ module.exports = {
   SYNC_INTERVAL_MS,
   NWC_URL,
   ALBY_TOKEN,
+  PUBLIC_BASE_URL,
   PUBLIC_DIR,
 };
