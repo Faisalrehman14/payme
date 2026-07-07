@@ -259,7 +259,25 @@ th {
 }
 
 .login-card .brand-logo { margin-bottom: 18px; }
-.login-card h1 { margin: 0 0 6px; font-size: 24px; }
+
+/* Admin login — single card on dark bg */
+.login-shell:not(:has(.login-brand-panel)) {
+  grid-template-columns: 1fr;
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.18), transparent 40%),
+    radial-gradient(circle at bottom left, rgba(29, 78, 216, 0.22), transparent 45%),
+    #0f172a;
+}
+
+.login-shell:not(:has(.login-brand-panel)) .login-card .brand-text strong {
+  color: #0f172a;
+}
+
+.login-shell:not(:has(.login-brand-panel)) .login-card .brand-text span {
+  color: #64748b;
+}
+
+.login-card h1 { margin: 0 0 6px; font-size: 24px; color: #0f172a; }
 .login-card .field { margin-bottom: 10px; }
 .login-card .btn { width: 100%; margin-top: 6px; }
 

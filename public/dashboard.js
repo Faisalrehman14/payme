@@ -139,7 +139,7 @@ function renderPaymentsTable(tbody, payments, commission, filter = "") {
 
   tbody.innerHTML =
     rows.map((p) => paymentRow(p, commission)).join("") ||
-    `<tr><td colspan="5">No payments yet</td></tr>`;
+    `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">📭</div>No payments yet — share your checkout link to get started.</div></td></tr>`;
 }
 
 function loadPrefs() {
@@ -160,7 +160,7 @@ function timezoneLabel(tz) {
 }
 
 function themeLabel(theme) {
-  return theme === "dark" ? "Dark Mode" : "Light Mode";
+  return theme === "dark" ? "Dark" : "Light";
 }
 
 function applyTheme(theme) {
@@ -358,6 +358,12 @@ function renderDashboard() {
   document.getElementById("userAvatar").textContent = user.username.charAt(0).toUpperCase();
   document.getElementById("sidebarCommission").textContent = pct(commission);
 
+  const topbarOffice = document.getElementById("topbarOfficeName");
+  if (topbarOffice) topbarOffice.textContent = office?.name || "—";
+
+  const livePill = document.getElementById("livePill");
+  if (livePill) livePill.textContent = `Live · ${new Date().toLocaleTimeString()}`;
+
   document.getElementById("todayGross").textContent = money(stats.todayGross);
   document.getElementById("todayGrossSub").textContent = `Before ${pct(commission)} commission`;
   document.getElementById("todayNet").textContent = money(stats.todayNet);
@@ -370,8 +376,8 @@ function renderDashboard() {
   document.getElementById("bannerCommission").textContent = pct(commission);
   document.getElementById("flowGross").textContent = money(stats.todayGross);
   document.getElementById("flowNet").textContent = money(stats.todayNet);
-  document.getElementById("afterPctHeader").textContent = `AFTER ${pct(commission)}`;
-  document.getElementById("historyAfterHeader").textContent = `AFTER ${pct(commission)}`;
+  document.getElementById("afterPctHeader").textContent = `After ${pct(commission)}`;
+  document.getElementById("historyAfterHeader").textContent = `After ${pct(commission)}`;
 
   const todayPayments = allPayments.filter((p) => isToday(p.settledAt || p.createdAt));
   renderPaymentsTable(

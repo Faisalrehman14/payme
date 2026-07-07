@@ -11,7 +11,7 @@
 </head>
 <body>
   <section id="loginSection" class="login-shell">
-    <div class="login-card">
+    <div class="login-brand-panel">
       <div class="brand-logo">
         <div class="brand-mark">G</div>
         <div class="brand-text">
@@ -19,14 +19,48 @@
           <span>Payment Portal</span>
         </div>
       </div>
-      <h1>Office Login</h1>
-      <p class="sub">Secure access to your office payment dashboard</p>
-      <input id="loginUser" class="field" type="text" placeholder="Username" autocomplete="username" />
-      <input id="loginPass" class="field" type="password" placeholder="Password" autocomplete="current-password" />
-      <button id="loginBtn" type="button" class="btn btn-primary">Sign In</button>
-      <p id="adminNotice" class="notice hidden">You are logged in as admin. Logout below so office staff can sign in.</p>
-      <button id="loginLogoutBtn" class="btn btn-secondary hidden" type="button">Logout Admin</button>
-      <p class="error" id="loginError"></p>
+      <h2>Your office payment command center.</h2>
+      <p class="brand-lead">Track Cash App payments, monitor commissions, and manage your checkout link — all in one secure dashboard.</p>
+      <div class="login-features">
+        <div class="login-feature">
+          <span class="login-feature-icon">📊</span>
+          <span>Real-time revenue & transaction stats</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">🔗</span>
+          <span>Shareable payment link & QR code</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">🔒</span>
+          <span>Encrypted sessions & secure access</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="login-form-panel">
+      <div class="login-card">
+        <div class="login-card-mark">G</div>
+        <h1>Office Sign In</h1>
+        <p class="sub">Enter your credentials to access the payment dashboard</p>
+
+        <div class="field-group">
+          <label class="field-label" for="loginUser">Username</label>
+          <input id="loginUser" class="field" type="text" placeholder="your.username" autocomplete="username" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="loginPass">Password</label>
+          <input id="loginPass" class="field" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+
+        <button id="loginBtn" type="button" class="btn btn-primary">Sign In to Dashboard</button>
+        <p id="adminNotice" class="notice hidden">You are logged in as admin. Logout below so office staff can sign in.</p>
+        <button id="loginLogoutBtn" class="btn btn-secondary hidden" type="button">Logout Admin</button>
+        <p class="error" id="loginError"></p>
+
+        <p class="login-foot-note">
+          Admin user? <a href="/admin">Open admin portal</a>
+        </p>
+      </div>
     </div>
   </section>
 
@@ -36,7 +70,7 @@
         <div class="brand-mark">G</div>
         <div class="brand-text">
           <strong>Globa Pay</strong>
-          <span>PAYMENT PORTAL</span>
+          <span>Payment Portal</span>
         </div>
       </div>
 
@@ -50,323 +84,362 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button type="button" class="nav-item active" data-view="dashboard">📊 Dashboard</button>
-        <button type="button" class="nav-item" data-view="history">📋 Payment History</button>
-        <button type="button" class="nav-item" data-view="monthly">📅 Monthly Records</button>
-        <button type="button" class="nav-item" data-view="checkout">🔗 My Checkout Link</button>
-        <button type="button" class="nav-item" data-view="settings">⚙️ Account Settings</button>
+        <button type="button" class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">◫</span> Dashboard
+        </button>
+        <button type="button" class="nav-item" data-view="history">
+          <span class="nav-icon">☰</span> Payment History
+        </button>
+        <button type="button" class="nav-item" data-view="monthly">
+          <span class="nav-icon">▦</span> Monthly Records
+        </button>
+        <button type="button" class="nav-item" data-view="checkout">
+          <span class="nav-icon">⛓</span> Checkout Link
+        </button>
+        <button type="button" class="nav-item" data-view="settings">
+          <span class="nav-icon">⚙</span> Settings
+        </button>
       </nav>
 
-      <button type="button" class="copy-link-btn" id="copyLinkBtn">Copy Payment Link</button>
-      <button type="button" class="logout-side" id="logoutBtn">Logout</button>
+      <div class="sidebar-actions">
+        <button type="button" class="copy-link-btn" id="copyLinkBtn">Copy Payment Link</button>
+        <button type="button" class="logout-side" id="logoutBtn">Sign Out</button>
+      </div>
     </aside>
 
     <main class="main">
-      <section class="view" id="view-dashboard">
-        <div class="hero">
-          <div>
-            <h1 id="greeting">Good morning</h1>
-            <p>Track payments, commission, and customer activity for your office.</p>
-          </div>
-          <div class="hero-actions">
-            <button type="button" class="btn-outline" id="heroShareBtn">Share Link</button>
-            <button type="button" class="btn-outline" data-view-jump="history">View History</button>
-          </div>
+      <header class="main-topbar">
+        <div class="topbar-office">
+          Office
+          <strong id="topbarOfficeName">—</strong>
         </div>
+        <span class="live-pill" id="livePill">Live sync</span>
+      </header>
 
-        <div class="stat-grid">
-          <div class="stat-card">
-            <div class="stat-label">Today's Gross Total</div>
-            <div class="stat-value" id="todayGross">$0.00</div>
-            <div class="stat-sub" id="todayGrossSub">Before commission</div>
+      <div class="main-content">
+        <section class="view" id="view-dashboard">
+          <div class="hero">
+            <div>
+              <h1 id="greeting">Good morning</h1>
+              <p>Track payments, commission, and customer activity for your office.</p>
+            </div>
+            <div class="hero-actions">
+              <button type="button" class="btn btn-outline" id="heroShareBtn">Share Link</button>
+              <button type="button" class="btn btn-outline" data-view-jump="history">View History</button>
+            </div>
           </div>
-          <div class="stat-card highlight">
-            <div class="stat-label">Your Balance (After %)</div>
-            <div class="stat-value" id="todayNet">$0.00</div>
-            <div class="commission-tag" id="todayNetTag">- 0%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Today's Transactions</div>
-            <div class="stat-value" id="todayCount">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">This Month (Net)</div>
-            <div class="stat-value" id="monthNet">$0.00</div>
-            <div class="stat-sub" id="monthSub">Gross $0.00 · 0 txns</div>
-          </div>
-        </div>
 
-        <div class="commission-banner">
-          <div>
-            <strong>Commission Rate: <span id="bannerCommission">0.00%</span></strong>
-            <p>Assigned by admin — deducted from gross earnings before your balance.</p>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-card-top">
+                <div class="stat-label">Today's Gross</div>
+                <div class="stat-icon green">$</div>
+              </div>
+              <div class="stat-value" id="todayGross">$0.00</div>
+              <div class="stat-sub" id="todayGrossSub">Before commission</div>
+            </div>
+            <div class="stat-card highlight">
+              <div class="stat-card-top">
+                <div class="stat-label">Your Balance</div>
+                <div class="stat-icon blue">✓</div>
+              </div>
+              <div class="stat-value" id="todayNet">$0.00</div>
+              <div class="commission-tag" id="todayNetTag">- 0%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-top">
+                <div class="stat-label">Transactions</div>
+                <div class="stat-icon purple">#</div>
+              </div>
+              <div class="stat-value" id="todayCount">0</div>
+              <div class="stat-sub">Today</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-top">
+                <div class="stat-label">Month Net</div>
+                <div class="stat-icon orange">▲</div>
+              </div>
+              <div class="stat-value" id="monthNet">$0.00</div>
+              <div class="stat-sub" id="monthSub">Gross $0.00 · 0 txns</div>
+            </div>
           </div>
-          <div class="commission-flow">
-            <span>Gross <strong id="flowGross">$0.00</strong></span>
-            <span>→</span>
-            <span>Balance <strong id="flowNet">$0.00</strong></span>
-          </div>
-        </div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <h2>Today's Transactions</h2>
-            <input type="search" id="searchInput" placeholder="Search status..." />
+          <div class="commission-banner">
+            <div>
+              <strong>Commission Rate: <span id="bannerCommission">0.00%</span></strong>
+              <p>Assigned by admin — deducted from gross earnings before your balance.</p>
+            </div>
+            <div class="commission-flow">
+              <span>Gross <strong id="flowGross">$0.00</strong></span>
+              <span>→</span>
+              <span>Balance <strong id="flowNet">$0.00</strong></span>
+            </div>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>GROSS</th>
-                  <th id="afterPctHeader">AFTER 0%</th>
-                  <th>METHOD</th>
-                  <th>DATE</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
-              <tbody id="todayPaymentsTable"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
 
-      <section class="view hidden" id="view-history">
-        <div class="panel">
-          <div class="panel-head"><h2>Payment History</h2></div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>GROSS</th>
-                  <th id="historyAfterHeader">AFTER 0%</th>
-                  <th>METHOD</th>
-                  <th>DATE</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
-              <tbody id="historyPaymentsTable"></tbody>
-            </table>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Today's Transactions</h2>
+              <input type="search" id="searchInput" placeholder="Search status..." />
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Gross</th>
+                    <th id="afterPctHeader">After 0%</th>
+                    <th>Method</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="todayPaymentsTable"></tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="view hidden" id="view-monthly">
-        <div class="monthly-head">
-          <div>
-            <p class="breadcrumb">Dashboard / Monthly Records</p>
-            <h1>📅 Monthly Payment Records</h1>
+        <section class="view hidden" id="view-history">
+          <div class="page-header">
+            <p class="breadcrumb">Dashboard / History</p>
+            <h1>Payment History</h1>
+            <p class="sub">All customer payments for your office.</p>
           </div>
-          <button type="button" class="btn-export" id="exportCsvBtn">Export CSV</button>
-        </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Gross</th>
+                    <th id="historyAfterHeader">After 0%</th>
+                    <th>Method</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="historyPaymentsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
-        <div class="filter-bar">
-          <label>Month
-            <select id="monthSelect"></select>
-          </label>
-          <label>Year
-            <select id="yearSelect"></select>
-          </label>
-          <button type="button" class="btn-primary btn-filter" id="monthFilterBtn">Filter</button>
-        </div>
+        <section class="view hidden" id="view-monthly">
+          <div class="monthly-head">
+            <div>
+              <p class="breadcrumb">Dashboard / Monthly</p>
+              <h1>Monthly Records</h1>
+              <p class="sub">Revenue breakdown, charts, and daily totals.</p>
+            </div>
+            <button type="button" class="btn-export" id="exportCsvBtn">Export CSV</button>
+          </div>
 
-        <div class="monthly-stats">
-          <div class="m-stat green">
-            <div class="m-stat-label">Gross Revenue</div>
-            <div class="m-stat-value" id="mGross">$0.00</div>
-            <div class="m-stat-sub" id="mTxnCount">0 transactions</div>
+          <div class="filter-bar">
+            <label>Month
+              <select id="monthSelect"></select>
+            </label>
+            <label>Year
+              <select id="yearSelect"></select>
+            </label>
+            <button type="button" class="btn btn-primary btn-filter" id="monthFilterBtn">Apply Filter</button>
           </div>
-          <div class="m-stat orange">
-            <div class="m-stat-label" id="mNetLabel">Your Balance (After 0%)</div>
-            <div class="m-stat-value" id="mNet">$0.00</div>
-            <div class="m-stat-sub">Your share this month</div>
-          </div>
-          <div class="m-stat blue">
-            <div class="m-stat-label">Avg Transaction</div>
-            <div class="m-stat-value" id="mAvg">$0.00</div>
-            <div class="m-stat-sub">Per payment average</div>
-          </div>
-          <div class="m-stat yellow">
-            <div class="m-stat-label">Highest</div>
-            <div class="m-stat-value" id="mHigh">$0.00</div>
-            <div class="m-stat-sub">Largest single payment</div>
-          </div>
-          <div class="m-stat purple">
-            <div class="m-stat-label">Lowest</div>
-            <div class="m-stat-value" id="mLow">$0.00</div>
-            <div class="m-stat-sub">Smallest single payment</div>
-          </div>
-        </div>
 
-        <div class="charts-row">
-          <div class="panel chart-panel">
-            <h3>Daily Revenue</h3>
-            <div id="revenueChart" class="chart-box"></div>
+          <div class="monthly-stats">
+            <div class="m-stat green">
+              <div class="m-stat-label">Gross Revenue</div>
+              <div class="m-stat-value" id="mGross">$0.00</div>
+              <div class="m-stat-sub" id="mTxnCount">0 transactions</div>
+            </div>
+            <div class="m-stat orange">
+              <div class="m-stat-label" id="mNetLabel">Your Balance (After 0%)</div>
+              <div class="m-stat-value" id="mNet">$0.00</div>
+              <div class="m-stat-sub">Your share this month</div>
+            </div>
+            <div class="m-stat blue">
+              <div class="m-stat-label">Avg Transaction</div>
+              <div class="m-stat-value" id="mAvg">$0.00</div>
+              <div class="m-stat-sub">Per payment average</div>
+            </div>
+            <div class="m-stat yellow">
+              <div class="m-stat-label">Highest</div>
+              <div class="m-stat-value" id="mHigh">$0.00</div>
+              <div class="m-stat-sub">Largest payment</div>
+            </div>
+            <div class="m-stat purple">
+              <div class="m-stat-label">Lowest</div>
+              <div class="m-stat-value" id="mLow">$0.00</div>
+              <div class="m-stat-sub">Smallest payment</div>
+            </div>
           </div>
-          <div class="panel chart-panel">
-            <h3>Payment Methods</h3>
-            <div class="donut-wrap">
-              <div class="donut cashapp-only" id="methodDonut"></div>
-              <div class="donut-legend">
-                <span class="dot cashapp"></span> Cash App — 100%
+
+          <div class="charts-row">
+            <div class="panel chart-panel">
+              <h3>Daily Revenue</h3>
+              <div id="revenueChart" class="chart-box"></div>
+            </div>
+            <div class="panel chart-panel">
+              <h3>Payment Methods</h3>
+              <div class="donut-wrap">
+                <div class="donut cashapp-only" id="methodDonut"></div>
+                <div class="donut-legend">
+                  <span class="dot cashapp"></span> Cash App — 100%
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="panel">
-          <h3>Payment Methods Breakdown</h3>
-          <div class="method-breakdown" id="methodBreakdown"></div>
-        </div>
-
-        <div class="panel">
-          <h3>Daily Breakdown</h3>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>DATE</th>
-                  <th>TRANSACTIONS</th>
-                  <th>GROSS</th>
-                  <th id="monthlyAfterHeader">AFTER 0%</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
-              <tbody id="monthlyDailyTable"></tbody>
-            </table>
+          <div class="panel">
+            <h3>Payment Methods Breakdown</h3>
+            <div class="method-breakdown" id="methodBreakdown"></div>
           </div>
-        </div>
-      </section>
 
-      <section class="view hidden" id="view-checkout">
-        <div class="checkout-head">
-          <h1>My Checkout Link</h1>
-          <p class="sub">Share this link with customers to receive Cash App payments instantly.</p>
-        </div>
+          <div class="panel">
+            <h3>Daily Breakdown</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Transactions</th>
+                    <th>Gross</th>
+                    <th id="monthlyAfterHeader">After 0%</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="monthlyDailyTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
-        <div class="checkout-grid">
-          <div class="checkout-left">
-            <div class="panel checkout-card">
-              <h3>Your Payment Link</h3>
-              <div class="link-row">
-                <input id="checkoutLinkInput" type="text" readonly value="—" />
-                <button type="button" class="btn-primary btn-copy-inline" id="checkoutCopyBtn">Copy</button>
+        <section class="view hidden" id="view-checkout">
+          <div class="checkout-head page-header">
+            <p class="breadcrumb">Dashboard / Checkout</p>
+            <h1>My Checkout Link</h1>
+            <p class="sub">Share this link with customers to receive Cash App payments instantly.</p>
+          </div>
+
+          <div class="checkout-grid">
+            <div class="checkout-left">
+              <div class="panel checkout-card">
+                <h3>Your Payment Link</h3>
+                <div class="link-row">
+                  <input id="checkoutLinkInput" type="text" readonly value="—" />
+                  <button type="button" class="btn btn-primary btn-copy-inline" id="checkoutCopyBtn">Copy</button>
+                </div>
+                <div class="checkout-actions">
+                  <button type="button" class="btn btn-outline" id="checkoutOpenBtn">Open Link</button>
+                  <button type="button" class="btn btn-outline" id="checkoutShareBtn">Share</button>
+                </div>
               </div>
-              <div class="checkout-actions">
-                <button type="button" class="btn-outline" id="checkoutOpenBtn">Open Link</button>
-                <button type="button" class="btn-outline" id="checkoutShareBtn">Share</button>
+
+              <div class="panel checkout-card">
+                <h3>Customer Instructions</h3>
+                <p class="sub">Copy this message and send to your customers</p>
+                <div class="instruction-box" id="customerMessage">—</div>
+                <button type="button" class="btn-export" id="copyMessageBtn">Copy Message</button>
               </div>
             </div>
 
-            <div class="panel checkout-card">
-              <h3>Customer Instructions</h3>
-              <p class="sub">Copy this message and send to your customers</p>
-              <div class="instruction-box" id="customerMessage">—</div>
-              <button type="button" class="btn-export" id="copyMessageBtn">Copy Message</button>
+            <div class="panel checkout-card checkout-qr-card">
+              <h3>QR Code</h3>
+              <div class="qr-frame">
+                <img id="checkoutQr" alt="Payment QR code" />
+              </div>
+              <p class="qr-title">Scan to Pay</p>
+              <p class="sub">Print or share this QR so customers can open your payment page.</p>
             </div>
           </div>
+        </section>
 
-          <div class="panel checkout-card checkout-qr-card">
-            <h3>QR Code</h3>
-            <div class="qr-frame">
-              <img id="checkoutQr" alt="Payment QR code" />
-            </div>
-            <p class="qr-title">Scan to Pay</p>
-            <p class="sub">Customers can scan this QR code to open your payment page. Print it or share digitally.</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="view hidden" id="view-settings">
-        <div class="settings-head">
-          <div>
+        <section class="view hidden" id="view-settings">
+          <div class="settings-head page-header">
             <p class="breadcrumb">Dashboard / Settings</p>
-            <h1>⚙️ Account Settings</h1>
-            <p class="sub">Customize your timezone, appearance, and security.</p>
+            <h1>Account Settings</h1>
+            <p class="sub">Customize timezone, appearance, and security.</p>
           </div>
-        </div>
 
-        <div class="settings-grid-top">
+          <div class="settings-grid-top">
+            <div class="panel settings-card">
+              <div class="settings-card-head blue">
+                <span class="settings-icon">☰</span>
+                <div>
+                  <h3>Preferences</h3>
+                  <p class="sub">Timezone and appearance</p>
+                </div>
+              </div>
+              <label class="field-label">Preferred Timezone</label>
+              <select id="timezoneSelect" class="settings-input">
+                <option value="Asia/Karachi">GMT+5 (Pakistan Standard Time)</option>
+                <option value="UTC">UTC (Coordinated Universal Time)</option>
+              </select>
+
+              <label class="field-label">Appearance</label>
+              <div class="theme-picker">
+                <button type="button" class="theme-option active" data-theme="light" id="themeLightBtn">
+                  <span>☀️</span>
+                  <strong>Light</strong>
+                </button>
+                <button type="button" class="theme-option" data-theme="dark" id="themeDarkBtn">
+                  <span>🌙</span>
+                  <strong>Dark</strong>
+                </button>
+              </div>
+
+              <button type="button" class="btn btn-primary settings-save" id="savePrefsBtn">Save Preferences</button>
+              <p class="error" id="prefsMsg"></p>
+            </div>
+
+            <div class="panel settings-card">
+              <div class="settings-card-head red">
+                <span class="settings-icon">🔒</span>
+                <div>
+                  <h3>Security</h3>
+                  <p class="sub">Update your password</p>
+                </div>
+              </div>
+              <label class="field-label">Current Password</label>
+              <input id="currentPassword" type="password" class="settings-input" placeholder="Enter current password" />
+
+              <label class="field-label">New Password</label>
+              <input id="newPassword" type="password" class="settings-input" placeholder="Min 8 characters" />
+
+              <label class="field-label">Confirm New Password</label>
+              <input id="confirmPassword" type="password" class="settings-input" placeholder="Repeat new password" />
+
+              <button type="button" class="btn btn-danger settings-save" id="updatePasswordBtn">Update Password</button>
+              <p class="error" id="passwordMsg"></p>
+            </div>
+          </div>
+
           <div class="panel settings-card">
             <div class="settings-card-head blue">
-              <span class="settings-icon">☰</span>
+              <span class="settings-icon">👤</span>
               <div>
-                <h3>Preferences</h3>
-                <p class="sub">Timezone and appearance</p>
+                <h3>Account Info</h3>
+                <p class="sub">Your office account details</p>
               </div>
             </div>
-            <label class="field-label">Preferred Timezone</label>
-            <select id="timezoneSelect" class="settings-input">
-              <option value="Asia/Karachi">GMT+5 (Pakistan Standard Time)</option>
-              <option value="UTC">UTC (Coordinated Universal Time)</option>
-            </select>
-
-            <label class="field-label">Appearance</label>
-            <div class="theme-picker">
-              <button type="button" class="theme-option active" data-theme="light" id="themeLightBtn">
-                <span>☀️</span>
-                <strong>Light Mode</strong>
-              </button>
-              <button type="button" class="theme-option" data-theme="dark" id="themeDarkBtn">
-                <span>🌙</span>
-                <strong>Dark Mode</strong>
-              </button>
-            </div>
-
-            <button type="button" class="btn-primary settings-save" id="savePrefsBtn">✓ Save Preferences</button>
-            <p class="error" id="prefsMsg"></p>
-          </div>
-
-          <div class="panel settings-card">
-            <div class="settings-card-head red">
-              <span class="settings-icon">🔒</span>
-              <div>
-                <h3>Security</h3>
-                <p class="sub">Update your password</p>
+            <div class="account-info-grid">
+              <div class="info-tile">
+                <div class="info-label">Username</div>
+                <div class="info-value" id="infoUsername">—</div>
+              </div>
+              <div class="info-tile">
+                <div class="info-label">Timezone</div>
+                <div class="info-value" id="infoTimezone">GMT+5</div>
+              </div>
+              <div class="info-tile">
+                <div class="info-label">Theme</div>
+                <div class="info-value" id="infoTheme">Light</div>
+              </div>
+              <div class="info-tile">
+                <div class="info-label">Commission</div>
+                <div class="info-value commission-value" id="infoCommission">0.00%</div>
+                <div class="info-sub">Set by administrator</div>
               </div>
             </div>
-            <label class="field-label">Current Password</label>
-            <input id="currentPassword" type="password" class="settings-input" placeholder="Enter current password" />
-
-            <label class="field-label">New Password</label>
-            <input id="newPassword" type="password" class="settings-input" placeholder="Min 8 characters" />
-
-            <label class="field-label">Confirm New Password</label>
-            <input id="confirmPassword" type="password" class="settings-input" placeholder="Repeat new password" />
-
-            <button type="button" class="btn-danger settings-save" id="updatePasswordBtn">🛡 Update Password</button>
-            <p class="error" id="passwordMsg"></p>
           </div>
-        </div>
-
-        <div class="panel settings-card">
-          <div class="settings-card-head blue">
-            <span class="settings-icon">👤</span>
-            <div>
-              <h3>Account Info</h3>
-              <p class="sub">Your office account details</p>
-            </div>
-          </div>
-          <div class="account-info-grid">
-            <div class="info-tile">
-              <div class="info-label">USERNAME</div>
-              <div class="info-value" id="infoUsername">—</div>
-            </div>
-            <div class="info-tile">
-              <div class="info-label">TIMEZONE</div>
-              <div class="info-value" id="infoTimezone">GMT+5</div>
-            </div>
-            <div class="info-tile">
-              <div class="info-label">THEME</div>
-              <div class="info-value" id="infoTheme">Light Mode</div>
-            </div>
-            <div class="info-tile">
-              <div class="info-label">COMMISSION RATE</div>
-              <div class="info-value commission-value" id="infoCommission">0.00%</div>
-              <div class="info-sub">Set by administrator</div>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   </div>
 
