@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS offices (
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   active BOOLEAN NOT NULL DEFAULT TRUE,
+  commission_percent NUMERIC(5, 2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -84,6 +85,7 @@ function mapOffice(row) {
     name: row.name,
     slug: row.slug,
     active: row.active,
+    commissionPercent: Number(row.commission_percent || 0),
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -118,6 +120,9 @@ function mapPayment(row) {
 
 async function init() {
   await pool.query(SCHEMA_SQL);
+  await pool.query(
+    "ALTER TABLE offices ADD COLUMN IF NOT EXISTS commission_percent NUMERIC(5, 2) NOT NULL DEFAULT 0"
+  );
   await pool.query("DELETE FROM sessions WHERE expires_at <= $1", [Date.now()]);
   await migrateJsonIfNeeded();
   console.log("✓ PostgreSQL connected and schema ready");
@@ -281,21 +286,92 @@ async function getOfficeById(id) {
   return mapOffice(rows[0]);
 }
 
-async function createOffice(name, slug) {
+async function createOffice(name, slug, commissionPercent = 0) {
   const cleanSlug = slug || slugify(name);
   if (!cleanSlug) throw new Error("Invalid office name");
+  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
 
   const existing = await pool.query("SELECT id FROM offices WHERE slug = $1", [cleanSlug]);
   if (existing.rows.length) throw new Error("Office slug already exists");
 
   const id = crypto.randomUUID();
   const { rows } = await pool.query(
-    `INSERT INTO offices (id, name, slug, active)
-     VALUES ($1, $2, $3, TRUE)
+    `INSERT INTO offices (id, name, slug, active, commission_percent)
+     VALUES ($1, $2, $3, TRUE, $4)
      RETURNING *`,
-    [id, name.trim(), cleanSlug]
+    [id, name.trim(), cleanSlug, pct]
   );
   return mapOffice(rows[0]);
+}
+
+async function updateOfficeCommission(officeId, commissionPercent) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
+  const { rows } = await pool.query(
+    `UPDATE offices SET commission_percent = $1 WHERE id = $2 RETURNING *`,
+    [pct, officeId]
+  );
+  return mapOffice(rows[0]);
+}
+
+function netUsd(gross, commissionPercent) {
+  return gross * (1 - commissionPercent / 100);
+}
+
+async function getDashboardStats(officeId) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const pct = office.commissionPercent;
+
+  const { rows } = await pool.query(
+    `SELECT amount_usd, status, settled_at, created_at
+     FROM payments
+     WHERE office_id = $1`,
+    [officeId]
+  );
+
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  let todayGross = 0;
+  let todayNet = 0;
+  let todayCount = 0;
+  let monthGross = 0;
+  let monthNet = 0;
+  let monthCount = 0;
+
+  for (const row of rows) {
+    if (row.status !== "paid") continue;
+    const gross = Number(row.amount_usd);
+    const net = netUsd(gross, pct);
+    const paidAt = new Date(row.settled_at || row.created_at);
+
+    if (paidAt >= startOfDay) {
+      todayGross += gross;
+      todayNet += net;
+      todayCount += 1;
+    }
+    if (paidAt >= startOfMonth) {
+      monthGross += gross;
+      monthNet += net;
+      monthCount += 1;
+    }
+  }
+
+  return {
+    commissionPercent: pct,
+    todayGross,
+    todayNet,
+    todayCount,
+    monthGross,
+    monthNet,
+    monthCount,
+    totalPayments: rows.length,
+    paidCount: rows.filter((r) => r.status === "paid").length,
+    pendingCount: rows.filter((r) => r.status === "pending").length,
+  };
 }
 
 async function createOfficeUser(username, password, officeId) {
@@ -456,6 +532,9 @@ module.exports = {
   getOfficeBySlug,
   getOfficeById,
   createOffice,
+  updateOfficeCommission,
+  getDashboardStats,
+  netUsd,
   createOfficeUser,
   updateOfficeUserPassword,
   deleteOfficeUser,

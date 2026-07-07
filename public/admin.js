@@ -8,7 +8,7 @@ const logoutBtn = document.getElementById("logoutBtn");
 
 const officeName = document.getElementById("officeName");
 const officeSlug = document.getElementById("officeSlug");
-const createOfficeBtn = document.getElementById("createOfficeBtn");
+const officeCommission = document.getElementById("officeCommission");
 const officeError = document.getElementById("officeError");
 const officesTable = document.getElementById("officesTable");
 
@@ -67,12 +67,17 @@ async function loadAll() {
       <tr>
         <td>${o.name}</td>
         <td><div class="link-box">${o.payLink}</div></td>
+        <td>
+          <input type="number" min="0" max="100" step="0.01" value="${o.commissionPercent ?? 0}"
+            data-commission="${o.id}" style="width:90px" />
+          <button class="secondary" type="button" data-save-commission="${o.id}">Save</button>
+        </td>
         <td>${o.stats.paidCount}</td>
         <td>${o.stats.pendingCount}</td>
         <td>$${o.stats.totalUsd.toFixed(2)}</td>
       </tr>`
     )
-    .join("") || `<tr><td colspan="5">No offices yet</td></tr>`;
+    .join("") || `<tr><td colspan="6">No offices yet</td></tr>`;
 
   usersTable.innerHTML = usersData.users
     .map(
@@ -157,10 +162,12 @@ createOfficeBtn.addEventListener("click", async () => {
       body: JSON.stringify({
         name: officeName.value.trim(),
         slug: officeSlug.value.trim() || undefined,
+        commissionPercent: Number(officeCommission.value) || 0,
       }),
     });
     officeName.value = "";
     officeSlug.value = "";
+    officeCommission.value = "0";
     await loadAll();
   } catch (err) {
     officeError.textContent = err.message;
@@ -183,6 +190,23 @@ createUserBtn.addEventListener("click", async () => {
     await loadAll();
   } catch (err) {
     userError.textContent = err.message;
+  }
+});
+
+officesTable.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-save-commission]");
+  if (!btn) return;
+  const officeId = btn.dataset.saveCommission;
+  const input = officesTable.querySelector(`input[data-commission="${officeId}"]`);
+  try {
+    await api(`/api/admin/offices/${officeId}/commission`, {
+      method: "PATCH",
+      body: JSON.stringify({ commissionPercent: Number(input.value) || 0 }),
+    });
+    btn.textContent = "Saved!";
+    setTimeout(() => { btn.textContent = "Save"; }, 1500);
+  } catch (err) {
+    alert(err.message);
   }
 });
 

@@ -150,9 +150,10 @@ async function getOfficeById(id) {
   return db.offices.find((o) => o.id === id) || null;
 }
 
-async function createOffice(name, slug) {
+async function createOffice(name, slug, commissionPercent = 0) {
   const cleanSlug = slug || slugify(name);
   if (!cleanSlug) throw new Error("Invalid office name");
+  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
 
   const db = readDb();
   if (db.offices.some((o) => o.slug === cleanSlug)) {
@@ -164,6 +165,7 @@ async function createOffice(name, slug) {
     name: name.trim(),
     slug: cleanSlug,
     active: true,
+    commissionPercent: pct,
     createdAt: new Date().toISOString(),
   };
 
@@ -172,6 +174,70 @@ async function createOffice(name, slug) {
   });
 
   return office;
+}
+
+async function updateOfficeCommission(officeId, commissionPercent) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
+  updateDb((d) => {
+    const idx = d.offices.findIndex((o) => o.id === officeId);
+    if (idx !== -1) d.offices[idx].commissionPercent = pct;
+  });
+  return { ...office, commissionPercent: pct };
+}
+
+function netUsd(gross, commissionPercent) {
+  return gross * (1 - commissionPercent / 100);
+}
+
+async function getDashboardStats(officeId) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const pct = office.commissionPercent || 0;
+  const payments = await listPaymentsForOffice(officeId, 5000);
+
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  let todayGross = 0;
+  let todayNet = 0;
+  let todayCount = 0;
+  let monthGross = 0;
+  let monthNet = 0;
+  let monthCount = 0;
+
+  for (const p of payments) {
+    if (p.status !== "paid") continue;
+    const gross = p.amountUsd || 0;
+    const net = netUsd(gross, pct);
+    const paidAt = new Date(p.settledAt || p.createdAt);
+
+    if (paidAt >= startOfDay) {
+      todayGross += gross;
+      todayNet += net;
+      todayCount += 1;
+    }
+    if (paidAt >= startOfMonth) {
+      monthGross += gross;
+      monthNet += net;
+      monthCount += 1;
+    }
+  }
+
+  return {
+    commissionPercent: pct,
+    todayGross,
+    todayNet,
+    todayCount,
+    monthGross,
+    monthNet,
+    monthCount,
+    totalPayments: payments.length,
+    paidCount: payments.filter((p) => p.status === "paid").length,
+    pendingCount: payments.filter((p) => p.status === "pending").length,
+  };
 }
 
 async function createOfficeUser(username, password, officeId) {
@@ -293,6 +359,9 @@ module.exports = {
   getOfficeBySlug,
   getOfficeById,
   createOffice,
+  updateOfficeCommission,
+  getDashboardStats,
+  netUsd,
   createOfficeUser,
   updateOfficeUserPassword,
   deleteOfficeUser,

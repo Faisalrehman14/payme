@@ -109,19 +109,31 @@ function requireOffice(req, res, next) {
 }
 
 function officePublicView(office) {
-  return { id: office.id, name: office.name, slug: office.slug };
+  return {
+    id: office.id,
+    name: office.name,
+    slug: office.slug,
+    commissionPercent: office.commissionPercent || 0,
+  };
 }
 
 function paymentView(payment, officesById) {
   const office = officesById[payment.officeId];
+  const commissionPercent = office?.commissionPercent || 0;
+  const grossUsd = Number(payment.amountUsd) || 0;
+  const netUsd = db.netUsd(grossUsd, commissionPercent);
   return {
     id: payment.id,
     officeId: payment.officeId,
     officeName: office ? office.name : "Unknown",
     officeSlug: office ? office.slug : null,
     paymentHash: payment.paymentHash,
-    amountUsd: payment.amountUsd,
+    amountUsd: grossUsd,
+    grossUsd,
+    netUsd,
+    commissionPercent,
     amountSats: payment.amountSats,
+    method: "Lightning",
     status: payment.status,
     createdAt: payment.createdAt,
     settledAt: payment.settledAt,
@@ -367,17 +379,34 @@ app.get("/api/admin/offices", requireAuth, requireAdmin, async (req, res) => {
 
 app.post("/api/admin/offices", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, slug } = req.body || {};
+    const { name, slug, commissionPercent } = req.body || {};
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Office name required" });
     }
-    const office = await db.createOffice(name.trim(), slug ? slug.trim() : undefined);
+    const office = await db.createOffice(
+      name.trim(),
+      slug ? slug.trim() : undefined,
+      commissionPercent
+    );
     res.status(201).json({
       office: {
         ...officePublicView(office),
         payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
       },
     });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.patch("/api/admin/offices/:id/commission", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { commissionPercent } = req.body || {};
+    if (commissionPercent === undefined || commissionPercent === null) {
+      return res.status(400).json({ error: "Commission percent required" });
+    }
+    const office = await db.updateOfficeCommission(req.params.id, commissionPercent);
+    res.json({ office: officePublicView(office) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -456,9 +485,10 @@ app.get("/api/dashboard/summary", requireAuth, requireOffice, async (req, res) =
     if (!office) return res.status(404).json({ error: "Office not found" });
 
     res.json({
+      user: { username: req.user.username },
       office: officePublicView(office),
       payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
-      stats: await db.getOfficeStats(office.id),
+      stats: await db.getDashboardStats(office.id),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

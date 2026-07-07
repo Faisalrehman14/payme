@@ -45,6 +45,7 @@
         <div class="row">
           <input id="officeName" type="text" placeholder="Office name (e.g. Downtown Branch)" />
           <input id="officeSlug" type="text" placeholder="Link slug (optional)" />
+          <input id="officeCommission" type="number" min="0" max="100" step="0.01" placeholder="Commission %" value="0" />
           <button id="createOfficeBtn" type="button">Create Office</button>
         </div>
         <p class="error" id="officeError"></p>
@@ -57,6 +58,7 @@
             <tr>
               <th>Name</th>
               <th>Payment Link</th>
+              <th>Commission %</th>
               <th>Paid</th>
               <th>Pending</th>
               <th>Total USD</th>

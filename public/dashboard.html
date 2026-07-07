@@ -8,64 +8,159 @@
   <link rel="stylesheet" href="/dashboard.css" />
 </head>
 <body>
-  <div class="wrap">
-    <section id="loginSection" class="login-wrap card">
+  <section id="loginSection" class="login-page">
+    <div class="login-card">
+      <div class="brand-mark">⚡ Globa Pay</div>
       <h1>Office Login</h1>
-      <p class="sub">View and verify payments for your office</p>
-      <p class="sub" style="color:#ffd27d">Use this page only — not /admin</p>
-      <div class="row">
-        <input id="loginUser" type="text" placeholder="Username" autocomplete="username" />
-      </div>
-      <div class="row">
-        <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
-      </div>
-      <button id="loginBtn" type="button">Login</button>
-      <p id="adminNotice" class="sub hidden" style="color:#ffd27d;margin-top:12px">
-        You are logged in as admin. Logout below so office staff can sign in.
-      </p>
-      <button id="loginLogoutBtn" class="secondary hidden" type="button" style="margin-top:8px">Logout Admin</button>
+      <p class="sub">Payment portal for your office</p>
+      <input id="loginUser" type="text" placeholder="Username" autocomplete="username" />
+      <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
+      <button id="loginBtn" type="button" class="btn-primary">Login</button>
+      <p id="adminNotice" class="notice hidden">You are logged in as admin. Logout below so office staff can sign in.</p>
+      <button id="loginLogoutBtn" class="btn-secondary hidden" type="button">Logout Admin</button>
       <p class="error" id="loginError"></p>
-      <p class="sub" style="margin-top:16px">
-        Admin? <a href="/admin">Go to admin portal</a>
-      </p>
-    </section>
+    </div>
+  </section>
 
-    <section id="appSection" class="hidden">
-      <div class="topbar">
+  <div id="appSection" class="app hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">⚡</div>
         <div>
-          <h1 id="officeTitle">Office Dashboard</h1>
-          <p class="sub" id="officeSubtitle">Verify customer payments here</p>
+          <strong>Globa Pay</strong>
+          <span>PAYMENT PORTAL</span>
         </div>
-        <button id="logoutBtn" class="secondary" type="button">Logout</button>
       </div>
 
-      <div class="card">
-        <h2>Your Payment Link</h2>
-        <p class="sub">Share this link with customers at your office</p>
-        <div class="link-box" id="payLink">—</div>
-      </div>
-
-      <div class="stats" id="stats"></div>
-
-      <div class="card">
-        <div class="topbar">
-          <h2>Payments</h2>
-          <button id="refreshBtn" class="secondary" type="button">Refresh</button>
+      <div class="user-card">
+        <div class="avatar" id="userAvatar">U</div>
+        <div>
+          <div class="user-name" id="userName">—</div>
+          <div class="user-role">Office Account</div>
         </div>
-        <p class="refresh-note">Auto-refreshes every 15 seconds</p>
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Amount</th>
-              <th>Sats</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="paymentsTable"></tbody>
-        </table>
+        <div class="commission-pill" id="sidebarCommission">0%</div>
       </div>
-    </section>
+
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-item active" data-view="dashboard">📊 Dashboard</button>
+        <button type="button" class="nav-item" data-view="history">📋 Payment History</button>
+        <button type="button" class="nav-item" data-view="checkout">🔗 My Checkout Link</button>
+        <button type="button" class="nav-item" data-view="settings">⚙️ Account Settings</button>
+      </nav>
+
+      <button type="button" class="copy-link-btn" id="copyLinkBtn">Copy Payment Link</button>
+      <button type="button" class="logout-side" id="logoutBtn">Logout</button>
+    </aside>
+
+    <main class="main">
+      <section class="view" id="view-dashboard">
+        <div class="hero">
+          <div>
+            <h1 id="greeting">Good morning</h1>
+            <p>Track payments, commission, and customer activity for your office.</p>
+          </div>
+          <div class="hero-actions">
+            <button type="button" class="btn-outline" id="heroShareBtn">Share Link</button>
+            <button type="button" class="btn-outline" data-view-jump="history">View History</button>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label">Today's Gross Total</div>
+            <div class="stat-value" id="todayGross">$0.00</div>
+            <div class="stat-sub" id="todayGrossSub">Before commission</div>
+          </div>
+          <div class="stat-card highlight">
+            <div class="stat-label">Your Balance (After %)</div>
+            <div class="stat-value" id="todayNet">$0.00</div>
+            <div class="commission-tag" id="todayNetTag">- 0%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Today's Transactions</div>
+            <div class="stat-value" id="todayCount">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">This Month (Net)</div>
+            <div class="stat-value" id="monthNet">$0.00</div>
+            <div class="stat-sub" id="monthSub">Gross $0.00 · 0 txns</div>
+          </div>
+        </div>
+
+        <div class="commission-banner">
+          <div>
+            <strong>Commission Rate: <span id="bannerCommission">0.00%</span></strong>
+            <p>Assigned by admin — deducted from gross earnings before your balance.</p>
+          </div>
+          <div class="commission-flow">
+            <span>Gross <strong id="flowGross">$0.00</strong></span>
+            <span>→</span>
+            <span>Balance <strong id="flowNet">$0.00</strong></span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Today's Transactions</h2>
+            <input type="search" id="searchInput" placeholder="Search status..." />
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>GROSS</th>
+                  <th id="afterPctHeader">AFTER 0%</th>
+                  <th>METHOD</th>
+                  <th>DATE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody id="todayPaymentsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-history">
+        <div class="panel">
+          <div class="panel-head"><h2>Payment History</h2></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>GROSS</th>
+                  <th id="historyAfterHeader">AFTER 0%</th>
+                  <th>METHOD</th>
+                  <th>DATE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody id="historyPaymentsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-checkout">
+        <div class="panel">
+          <h2>My Checkout Link</h2>
+          <p class="sub">Share this link with your customers</p>
+          <div class="link-box" id="payLink">—</div>
+          <button type="button" class="btn-primary" id="checkoutCopyBtn" style="margin-top:12px">Copy Link</button>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-settings">
+        <div class="panel">
+          <h2>Account Settings</h2>
+          <div class="settings-list">
+            <div><span>Username</span><strong id="settingsUser">—</strong></div>
+            <div><span>Office</span><strong id="settingsOffice">—</strong></div>
+            <div><span>Commission Rate</span><strong id="settingsCommission">0%</strong></div>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <script src="/dashboard.js"></script>
