@@ -11,6 +11,7 @@
     "@getalby/sdk": "^8.0.3",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "pg": "^8.22.0",
     "qrcode": "^1.5.4",
     "websocket-polyfill": "^0.0.3"
   }

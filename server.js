@@ -26,11 +26,6 @@ function normalizeToken(value) {
 const NWC_URL = process.env.NWC_URL;
 const ALBY_TOKEN = normalizeToken(process.env.ALBY_API_TOKEN);
 
-db.seedAdmin(
-  process.env.ADMIN_USERNAME || "admin",
-  process.env.ADMIN_PASSWORD || "admin123"
-);
-
 app.use(express.json());
 
 function parseCookies(req) {
@@ -73,21 +68,25 @@ function clearSessionCookie(res) {
   res.setHeader("Set-Cookie", parts.join("; "));
 }
 
-function getAuthUser(req) {
+async function getAuthUser(req) {
   const cookies = parseCookies(req);
-  const session = db.getSession(cookies[SESSION_COOKIE]);
+  const session = await db.getSession(cookies[SESSION_COOKIE]);
   if (!session) return null;
   const { passwordHash, ...user } = session.user;
   return user;
 }
 
-function requireAuth(req, res, next) {
-  const user = getAuthUser(req);
-  if (!user) {
-    return res.status(401).json({ error: "Login required" });
+async function requireAuth(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user) {
+      return res.status(401).json({ error: "Login required" });
+    }
+    req.user = user;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  req.user = user;
-  next();
 }
 
 function requireAdmin(req, res, next) {
@@ -288,63 +287,86 @@ async function lookupInvoiceSettled(paymentHash) {
   };
 }
 
-app.post("/api/auth/login", (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password) {
-    return res.status(400).json({ error: "Username and password required" });
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password required" });
+    }
+
+    const user = await db.findUserByUsername(username);
+    if (!user || !db.verifyPassword(password, user.passwordHash)) {
+      return res.status(401).json({ error: "Invalid username or password" });
+    }
+
+    const { token, expiresAt } = await db.createSession(user.id);
+    setSessionCookie(res, token, expiresAt);
+
+    const { passwordHash, ...safeUser } = user;
+    res.json({ user: safeUser });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  const user = db.findUserByUsername(username);
-  if (!user || !db.verifyPassword(password, user.passwordHash)) {
-    return res.status(401).json({ error: "Invalid username or password" });
+app.post("/api/auth/logout", async (req, res) => {
+  try {
+    const cookies = parseCookies(req);
+    if (cookies[SESSION_COOKIE]) {
+      await db.deleteSession(cookies[SESSION_COOKIE]);
+    }
+    clearSessionCookie(res);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  const { token, expiresAt } = db.createSession(user.id);
-  setSessionCookie(res, token, expiresAt);
-
-  const { passwordHash, ...safeUser } = user;
-  res.json({ user: safeUser });
 });
 
-app.post("/api/auth/logout", (req, res) => {
-  const cookies = parseCookies(req);
-  if (cookies[SESSION_COOKIE]) {
-    db.deleteSession(cookies[SESSION_COOKIE]);
+app.get("/api/auth/me", async (req, res) => {
+  try {
+    const user = await getAuthUser(req);
+    if (!user) return res.status(401).json({ error: "Not logged in" });
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  clearSessionCookie(res);
-  res.json({ ok: true });
 });
 
-app.get("/api/auth/me", (req, res) => {
-  const user = getAuthUser(req);
-  if (!user) return res.status(401).json({ error: "Not logged in" });
-  res.json({ user });
-});
-
-app.get("/api/offices/:slug", (req, res) => {
-  const office = db.getOfficeBySlug(req.params.slug);
-  if (!office) {
-    return res.status(404).json({ error: "Office not found" });
+app.get("/api/offices/:slug", async (req, res) => {
+  try {
+    const office = await db.getOfficeBySlug(req.params.slug);
+    if (!office) {
+      return res.status(404).json({ error: "Office not found" });
+    }
+    res.json({ office: officePublicView(office) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  res.json({ office: officePublicView(office) });
 });
 
-app.get("/api/admin/offices", requireAuth, requireAdmin, (req, res) => {
-  const offices = db.listOffices().map((office) => ({
-    ...officePublicView(office),
-    payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
-    stats: db.getOfficeStats(office.id),
-  }));
-  res.json({ offices });
+app.get("/api/admin/offices", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const offices = await db.listOffices();
+    const result = await Promise.all(
+      offices.map(async (office) => ({
+        ...officePublicView(office),
+        payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
+        stats: await db.getOfficeStats(office.id),
+      }))
+    );
+    res.json({ offices: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post("/api/admin/offices", requireAuth, requireAdmin, (req, res) => {
+app.post("/api/admin/offices", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, slug } = req.body || {};
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Office name required" });
     }
-    const office = db.createOffice(name.trim(), slug ? slug.trim() : undefined);
+    const office = await db.createOffice(name.trim(), slug ? slug.trim() : undefined);
     res.status(201).json({
       office: {
         ...officePublicView(office),
@@ -356,19 +378,24 @@ app.post("/api/admin/offices", requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-app.get("/api/admin/users", requireAuth, requireAdmin, (_req, res) => {
-  const officesById = Object.fromEntries(db.listOffices().map((o) => [o.id, o]));
-  const users = db.listUsers()
-    .filter((u) => u.role === "office")
-    .map((u) => ({
-      ...u,
-      officeName: officesById[u.officeId]?.name || null,
-      officeSlug: officesById[u.officeId]?.slug || null,
-    }));
-  res.json({ users });
+app.get("/api/admin/users", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const offices = await db.listOffices();
+    const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
+    const users = (await db.listUsers())
+      .filter((u) => u.role === "office")
+      .map((u) => ({
+        ...u,
+        officeName: officesById[u.officeId]?.name || null,
+        officeSlug: officesById[u.officeId]?.slug || null,
+      }));
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post("/api/admin/users", requireAuth, requireAdmin, (req, res) => {
+app.post("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { username, password, officeId } = req.body || {};
     if (!username || !password || !officeId) {
@@ -377,7 +404,7 @@ app.post("/api/admin/users", requireAuth, requireAdmin, (req, res) => {
     if (password.length < 6) {
       return res.status(400).json({ error: "Password must be at least 6 characters" });
     }
-    const user = db.createOfficeUser(username.trim(), password, officeId);
+    const user = await db.createOfficeUser(username.trim(), password, officeId);
     const { passwordHash, ...safeUser } = user;
     res.status(201).json({ user: safeUser });
   } catch (err) {
@@ -385,29 +412,43 @@ app.post("/api/admin/users", requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-app.get("/api/admin/payments", requireAuth, requireAdmin, (_req, res) => {
-  const officesById = Object.fromEntries(db.listOffices().map((o) => [o.id, o]));
-  const payments = db.listAllPayments().map((p) => paymentView(p, officesById));
-  res.json({ payments });
+app.get("/api/admin/payments", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const offices = await db.listOffices();
+    const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
+    const payments = (await db.listAllPayments()).map((p) => paymentView(p, officesById));
+    res.json({ payments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get("/api/dashboard/summary", requireAuth, requireOffice, (req, res) => {
-  const office = db.getOfficeById(req.user.officeId);
-  if (!office) return res.status(404).json({ error: "Office not found" });
+app.get("/api/dashboard/summary", requireAuth, requireOffice, async (req, res) => {
+  try {
+    const office = await db.getOfficeById(req.user.officeId);
+    if (!office) return res.status(404).json({ error: "Office not found" });
 
-  res.json({
-    office: officePublicView(office),
-    payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
-    stats: db.getOfficeStats(office.id),
-  });
+    res.json({
+      office: officePublicView(office),
+      payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
+      stats: await db.getOfficeStats(office.id),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get("/api/dashboard/payments", requireAuth, requireOffice, (req, res) => {
-  const officesById = Object.fromEntries(db.listOffices().map((o) => [o.id, o]));
-  const payments = db
-    .listPaymentsForOffice(req.user.officeId)
-    .map((p) => paymentView(p, officesById));
-  res.json({ payments });
+app.get("/api/dashboard/payments", requireAuth, requireOffice, async (req, res) => {
+  try {
+    const offices = await db.listOffices();
+    const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
+    const payments = (await db.listPaymentsForOffice(req.user.officeId)).map((p) =>
+      paymentView(p, officesById)
+    );
+    res.json({ payments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 function reqBaseUrl(req) {
@@ -437,12 +478,15 @@ app.get("/api/health", async (_req, res) => {
     }
   }
 
+  const database = await db.healthCheck();
+
   res.json({
-    ok: nwc.valid || tokenOk,
+    ok: (nwc.valid || tokenOk) && database.ok,
     nwc: nwc.valid,
     nwcError: nwc.valid ? null : nwc.error,
     token: tokenOk,
     tokenError,
+    database,
   });
 });
 
@@ -471,7 +515,7 @@ app.post("/api/invoice", async (req, res) => {
 
     let office = null;
     if (officeSlug) {
-      office = db.getOfficeBySlug(officeSlug);
+      office = await db.getOfficeBySlug(officeSlug);
       if (!office) {
         return res.status(404).json({ error: "Invalid payment link" });
       }
@@ -514,7 +558,7 @@ app.post("/api/invoice", async (req, res) => {
     const expiresAt = Date.now() + INVOICE_EXPIRY_SEC * 1000;
 
     if (office) {
-      db.createPayment({
+      await db.createPayment({
         officeId: office.id,
         paymentHash,
         amountUsd: usd,
@@ -560,15 +604,15 @@ app.get("/api/invoice/:hash/status", async (req, res) => {
     const settled = result.settled;
     const settledAt = result.settledAt || (settled ? new Date().toISOString() : null);
 
-    const stored = db.getPaymentByHash(req.params.hash);
+    const stored = await db.getPaymentByHash(req.params.hash);
     if (stored) {
       if (settled && stored.status !== "paid") {
-        db.updatePaymentByHash(req.params.hash, {
+        await db.updatePaymentByHash(req.params.hash, {
           status: "paid",
           settledAt,
         });
       } else if (!settled && stored.expiresAt && Date.now() > Date.parse(stored.expiresAt)) {
-        db.updatePaymentByHash(req.params.hash, { status: "expired" });
+        await db.updatePaymentByHash(req.params.hash, { status: "expired" });
       }
     }
 
@@ -582,16 +626,36 @@ app.get("/api/invoice/:hash/status", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Lightning Pay running ? http://localhost:${PORT}`);
-  console.log(`Admin portal ? http://localhost:${PORT}/admin`);
-  console.log(`Office dashboard ? http://localhost:${PORT}/dashboard`);
-  const nwc = parseNwcUrl(NWC_URL || "");
-  if (nwc.valid) {
-    console.log("? NWC_URL configured");
-  } else if (NWC_URL) {
-    console.log("? NWC_URL error:", nwc.error);
-  } else {
-    console.log("? Add NWC_URL to environment variables");
+async function start() {
+  try {
+    await db.init();
+    await db.seedAdmin(
+      process.env.ADMIN_USERNAME || "admin",
+      process.env.ADMIN_PASSWORD || "admin123"
+    );
+  } catch (err) {
+    console.error("Database startup failed:", err.message);
+    process.exit(1);
   }
-});
+
+  app.listen(PORT, () => {
+    console.log(`Lightning Pay running ? http://localhost:${PORT}`);
+    console.log(`Admin portal ? http://localhost:${PORT}/admin`);
+    console.log(`Office dashboard ? http://localhost:${PORT}/dashboard`);
+    const nwc = parseNwcUrl(NWC_URL || "");
+    if (nwc.valid) {
+      console.log("? NWC_URL configured");
+    } else if (NWC_URL) {
+      console.log("? NWC_URL error:", nwc.error);
+    } else {
+      console.log("? Add NWC_URL to environment variables");
+    }
+    if (process.env.DATABASE_URL) {
+      console.log("? DATABASE_URL configured (PostgreSQL)");
+    } else {
+      console.log("? Using JSON storage — add DATABASE_URL on Railway");
+    }
+  });
+}
+
+start();
