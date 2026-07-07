@@ -55,7 +55,7 @@ function setLoading() {
     .join("");
   recentPaymentsTable.innerHTML = skeletonRows(5);
   officesTable.innerHTML = skeletonRows(6);
-  usersTable.innerHTML = skeletonRows(4);
+  usersTable.innerHTML = skeletonRows(5);
   paymentsTable.innerHTML = skeletonRows(5);
   if (auditTable) auditTable.innerHTML = skeletonRows(5);
 }
@@ -188,9 +188,13 @@ function renderAudit(logs) {
 }
 
 function renderOffices(offices) {
+  const previousOffice = userOffice.value;
   userOffice.innerHTML = offices
     .map((o) => `<option value="${o.id}">${o.name}</option>`)
     .join("");
+  if (previousOffice && offices.some((o) => o.id === previousOffice)) {
+    userOffice.value = previousOffice;
+  }
 
   officesTable.innerHTML = offices
     .map(
@@ -221,16 +225,17 @@ function renderUsers(users) {
     <tr>
       <td>${u.username}</td>
       <td>${u.officeName || "—"}</td>
+      <td>${u.payLink ? `<div class="link-box">${u.payLink}</div>` : "—"}</td>
       <td>${fmtTime(u.createdAt)}</td>
       <td>
         <div class="inline-actions">
-          <button class="btn btn-secondary" type="button" data-reset="${u.id}" data-user="${u.username}">Reset Password</button>
-          <button class="btn btn-danger" type="button" data-delete="${u.id}" data-user="${u.username}">Delete</button>
+          <button class="btn btn-secondary" type="button" data-reset-id="${u.id}" data-user="${u.username}">Reset Password</button>
+          <button class="btn btn-danger" type="button" data-user-id="${u.id}" data-user="${u.username}">Delete</button>
         </div>
       </td>
     </tr>`
     )
-    .join("") || `<tr><td colspan="4">No office users yet</td></tr>`;
+    .join("") || `<tr><td colspan="5">No office users yet</td></tr>`;
 }
 
 function renderPayments(payments) {
@@ -361,19 +366,26 @@ createOfficeBtn.addEventListener("click", async () => {
 createUserBtn.addEventListener("click", async () => {
   userError.textContent = "";
   userSuccess.textContent = "";
+  const officeId = userOffice.value;
+  if (!officeId) {
+    userError.textContent = "Select an office first";
+    return;
+  }
   try {
-    await api("/api/admin/users", {
+    const data = await api("/api/admin/users", {
       method: "POST",
       body: JSON.stringify({
-        officeId: userOffice.value,
+        officeId,
         username: userName.value.trim(),
         password: userPass.value,
       }),
     });
     userName.value = "";
     userPass.value = "";
-    userSuccess.textContent = "User created successfully";
+    const linkNote = data.user.payLink ? ` Payment link: ${data.user.payLink}` : "";
+    userSuccess.textContent = `User created for ${data.user.officeName || "office"}.${linkNote}`;
     await loadAll();
+    if (officeId) userOffice.value = officeId;
   } catch (err) {
     userError.textContent = err.message;
   }
@@ -400,10 +412,11 @@ officesTable.addEventListener("click", async (e) => {
 });
 
 usersTable.addEventListener("click", async (e) => {
-  const resetBtn = e.target.closest("[data-reset]");
-  const deleteBtn = e.target.closest("[data-delete]");
+  const resetBtn = e.target.closest("[data-reset-id]");
+  const deleteBtn = e.target.closest("[data-user-id]");
 
   if (resetBtn) {
+    const userId = resetBtn.getAttribute("data-reset-id");
     const password = prompt(`New password for "${resetBtn.dataset.user}" (min 8 chars):`);
     if (!password) return;
     if (password.length < 8) {
@@ -411,7 +424,7 @@ usersTable.addEventListener("click", async (e) => {
       return;
     }
     try {
-      await api(`/api/admin/users/${resetBtn.dataset.reset}/password`, {
+      await api(`/api/admin/users/${userId}/password`, {
         method: "PATCH",
         body: JSON.stringify({ password }),
       });
@@ -423,9 +436,12 @@ usersTable.addEventListener("click", async (e) => {
   }
 
   if (deleteBtn) {
-    if (!confirm(`Delete user "${deleteBtn.dataset.user}"?`)) return;
+    const userId = deleteBtn.getAttribute("data-user-id");
+    if (!userId) return;
+    if (!confirm(`Delete user "${deleteBtn.dataset.user}"? This cannot be undone.`)) return;
     try {
-      await api(`/api/admin/users/${deleteBtn.dataset.delete}`, { method: "DELETE" });
+      await api(`/api/admin/users/${userId}`, { method: "DELETE" });
+      userSuccess.textContent = `User "${deleteBtn.dataset.user}" deleted.`;
       await loadAll();
     } catch (err) {
       alert(err.message);

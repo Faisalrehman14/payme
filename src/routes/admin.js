@@ -106,17 +106,22 @@ router.patch("/offices/:id/active", requireAuth, requireAdmin, async (req, res) 
   }
 });
 
-router.get("/users", requireAuth, requireAdmin, async (_req, res) => {
+router.get("/users", requireAuth, requireAdmin, async (req, res) => {
   try {
     const offices = await db.listOffices();
     const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
+    const baseUrl = reqBaseUrl(req);
     const users = (await db.listUsers())
       .filter((u) => u.role === "office")
-      .map((u) => ({
-        ...u,
-        officeName: officesById[u.officeId]?.name || null,
-        officeSlug: officesById[u.officeId]?.slug || null,
-      }));
+      .map((u) => {
+        const office = officesById[u.officeId];
+        return {
+          ...u,
+          officeName: office?.name || null,
+          officeSlug: office?.slug || null,
+          payLink: office ? `${baseUrl}/pay/${office.slug}` : null,
+        };
+      });
     res.json({ users });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -133,13 +138,21 @@ router.post("/users", requireAuth, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
     const user = await db.createOfficeUser(username.trim(), password, officeId);
+    const office = await db.getOfficeById(officeId);
     await logAudit(req, "user.create", {
       targetType: "user",
       targetId: user.id,
-      details: { username: user.username, officeId },
+      details: { username: user.username, officeId, officeName: office?.name || null },
     });
     const { passwordHash, ...safeUser } = user;
-    res.status(201).json({ user: safeUser });
+    res.status(201).json({
+      user: {
+        ...safeUser,
+        officeName: office?.name || null,
+        officeSlug: office?.slug || null,
+        payLink: office ? `${reqBaseUrl(req)}/pay/${office.slug}` : null,
+      },
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

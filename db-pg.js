@@ -538,7 +538,20 @@ async function updateOfficeUserPassword(userId, password) {
 async function deleteOfficeUser(userId) {
   const user = await getUserById(userId);
   if (!user || user.role !== "office") throw new Error("Office user not found");
-  await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
+    const { rowCount } = await client.query("DELETE FROM users WHERE id = $1", [userId]);
+    if (!rowCount) throw new Error("Office user not found");
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
   return true;
 }
 
