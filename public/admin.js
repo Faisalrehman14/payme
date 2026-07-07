@@ -81,9 +81,13 @@ async function loadAll() {
         <td>${u.username}</td>
         <td>${u.officeName || "—"}</td>
         <td>${fmtTime(u.createdAt)}</td>
+        <td>
+          <button class="secondary" type="button" data-reset="${u.id}" data-user="${u.username}">Reset Password</button>
+          <button class="danger" type="button" data-delete="${u.id}" data-user="${u.username}">Delete</button>
+        </td>
       </tr>`
     )
-    .join("") || `<tr><td colspan="3">No office users yet</td></tr>`;
+    .join("") || `<tr><td colspan="4">No office users yet</td></tr>`;
 
   paymentsTable.innerHTML = paymentsData.payments
     .map(
@@ -179,6 +183,40 @@ createUserBtn.addEventListener("click", async () => {
     await loadAll();
   } catch (err) {
     userError.textContent = err.message;
+  }
+});
+
+usersTable.addEventListener("click", async (e) => {
+  const resetBtn = e.target.closest("[data-reset]");
+  const deleteBtn = e.target.closest("[data-delete]");
+
+  if (resetBtn) {
+    const password = prompt(`New password for "${resetBtn.dataset.user}" (min 6 chars):`);
+    if (!password) return;
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters");
+      return;
+    }
+    try {
+      await api(`/api/admin/users/${resetBtn.dataset.reset}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ password }),
+      });
+      alert("Password updated");
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+
+  if (deleteBtn) {
+    if (!confirm(`Delete user "${deleteBtn.dataset.user}"?`)) return;
+    try {
+      await api(`/api/admin/users/${deleteBtn.dataset.delete}`, { method: "DELETE" });
+      await loadAll();
+    } catch (err) {
+      alert(err.message);
+    }
   }
 });
 

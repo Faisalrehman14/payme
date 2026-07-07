@@ -177,7 +177,7 @@ async function createOffice(name, slug) {
 async function createOfficeUser(username, password, officeId) {
   const db = readDb();
   if (db.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
-    throw new Error("Username already exists");
+    throw new Error(`Username "${username}" already exists — use a different name or reset that user's password`);
   }
   if (!(await getOfficeById(officeId))) {
     throw new Error("Office not found");
@@ -197,6 +197,29 @@ async function createOfficeUser(username, password, officeId) {
   });
 
   return user;
+}
+
+async function updateOfficeUserPassword(userId, password) {
+  const db = readDb();
+  const user = db.users.find((u) => u.id === userId);
+  if (!user || user.role !== "office") throw new Error("Office user not found");
+  updateDb((d) => {
+    const idx = d.users.findIndex((u) => u.id === userId);
+    d.users[idx].passwordHash = hashPassword(password);
+    d.sessions = d.sessions.filter((s) => s.userId !== userId);
+  });
+  return true;
+}
+
+async function deleteOfficeUser(userId) {
+  const db = readDb();
+  const user = db.users.find((u) => u.id === userId);
+  if (!user || user.role !== "office") throw new Error("Office user not found");
+  updateDb((d) => {
+    d.users = d.users.filter((u) => u.id !== userId);
+    d.sessions = d.sessions.filter((s) => s.userId !== userId);
+  });
+  return true;
 }
 
 async function listUsers() {
@@ -271,6 +294,8 @@ module.exports = {
   getOfficeById,
   createOffice,
   createOfficeUser,
+  updateOfficeUserPassword,
+  deleteOfficeUser,
   listUsers,
   createPayment,
   updatePaymentByHash,

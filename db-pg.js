@@ -306,7 +306,9 @@ async function createOfficeUser(username, password, officeId) {
     "SELECT id FROM users WHERE LOWER(username) = LOWER($1)",
     [username]
   );
-  if (existing.rows.length) throw new Error("Username already exists");
+  if (existing.rows.length) {
+    throw new Error(`Username "${username}" already exists — use a different name or reset that user's password`);
+  }
 
   const id = crypto.randomUUID();
   const { rows } = await pool.query(
@@ -316,6 +318,29 @@ async function createOfficeUser(username, password, officeId) {
     [id, username.trim(), hashPassword(password), officeId]
   );
   return mapUser(rows[0]);
+}
+
+async function getUserById(id) {
+  const { rows } = await pool.query("SELECT * FROM users WHERE id = $1 LIMIT 1", [id]);
+  return mapUser(rows[0]);
+}
+
+async function updateOfficeUserPassword(userId, password) {
+  const user = await getUserById(userId);
+  if (!user || user.role !== "office") throw new Error("Office user not found");
+  await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [
+    hashPassword(password),
+    userId,
+  ]);
+  await pool.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
+  return true;
+}
+
+async function deleteOfficeUser(userId) {
+  const user = await getUserById(userId);
+  if (!user || user.role !== "office") throw new Error("Office user not found");
+  await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+  return true;
 }
 
 async function listUsers() {
@@ -432,6 +457,8 @@ module.exports = {
   getOfficeById,
   createOffice,
   createOfficeUser,
+  updateOfficeUserPassword,
+  deleteOfficeUser,
   listUsers,
   createPayment,
   updatePaymentByHash,
