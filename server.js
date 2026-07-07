@@ -133,7 +133,7 @@ function paymentView(payment, officesById) {
     netUsd,
     commissionPercent,
     amountSats: payment.amountSats,
-    method: "Lightning",
+    method: "Cash App",
     status: payment.status,
     createdAt: payment.createdAt,
     settledAt: payment.settledAt,
@@ -503,6 +503,21 @@ app.get("/api/dashboard/payments", requireAuth, requireOffice, async (req, res) 
       paymentView(p, officesById)
     );
     res.json({ payments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/dashboard/monthly", requireAuth, requireOffice, async (req, res) => {
+  try {
+    const now = new Date();
+    const month = Number(req.query.month) || now.getMonth() + 1;
+    const year = Number(req.query.year) || now.getFullYear();
+    if (month < 1 || month > 12) {
+      return res.status(400).json({ error: "Invalid month" });
+    }
+    const data = await db.getMonthlyStats(req.user.officeId, month, year);
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

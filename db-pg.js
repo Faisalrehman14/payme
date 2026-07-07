@@ -374,6 +374,56 @@ async function getDashboardStats(officeId) {
   };
 }
 
+async function getMonthlyStats(officeId, month, year) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const commission = office.commissionPercent || 0;
+  const payments = (await listPaymentsForOffice(officeId, 10000)).filter((p) => p.status === "paid");
+
+  const inMonth = payments.filter((p) => {
+    const d = new Date(p.settledAt || p.createdAt);
+    return d.getMonth() + 1 === month && d.getFullYear() === year;
+  });
+
+  const amounts = inMonth.map((p) => Number(p.amountUsd) || 0);
+  const grossRevenue = amounts.reduce((a, b) => a + b, 0);
+  const netRevenue = inMonth.reduce((s, p) => s + netUsd(Number(p.amountUsd), commission), 0);
+
+  const byDay = {};
+  for (const p of inMonth) {
+    const d = new Date(p.settledAt || p.createdAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (!byDay[key]) byDay[key] = { date: key, transactions: 0, gross: 0, net: 0 };
+    const g = Number(p.amountUsd);
+    byDay[key].transactions += 1;
+    byDay[key].gross += g;
+    byDay[key].net += netUsd(g, commission);
+  }
+
+  const dailyBreakdown = Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    month,
+    year,
+    commissionPercent: commission,
+    grossRevenue,
+    netRevenue,
+    transactionCount: inMonth.length,
+    avgTransaction: inMonth.length ? grossRevenue / inMonth.length : 0,
+    highest: amounts.length ? Math.max(...amounts) : 0,
+    lowest: amounts.length ? Math.min(...amounts) : 0,
+    dailyBreakdown,
+    paymentMethods: [
+      {
+        name: "Cash App",
+        percent: 100,
+        gross: grossRevenue,
+        count: inMonth.length,
+      },
+    ],
+  };
+}
+
 async function createOfficeUser(username, password, officeId) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
@@ -534,6 +584,7 @@ module.exports = {
   createOffice,
   updateOfficeCommission,
   getDashboardStats,
+  getMonthlyStats,
   netUsd,
   createOfficeUser,
   updateOfficeUserPassword,

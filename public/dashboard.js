@@ -11,10 +11,20 @@ const copyLinkBtn = document.getElementById("copyLinkBtn");
 const checkoutCopyBtn = document.getElementById("checkoutCopyBtn");
 const heroShareBtn = document.getElementById("heroShareBtn");
 const searchInput = document.getElementById("searchInput");
+const monthSelect = document.getElementById("monthSelect");
+const yearSelect = document.getElementById("yearSelect");
+const monthFilterBtn = document.getElementById("monthFilterBtn");
+const exportCsvBtn = document.getElementById("exportCsvBtn");
 
 let refreshTimer = null;
 let dashboardData = null;
 let allPayments = [];
+let monthlyData = null;
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -41,7 +51,8 @@ function fmtTime(iso) {
 }
 
 function statusBadge(status) {
-  return `<span class="badge ${status}">${status}</span>`;
+  const label = status === "paid" ? "completed" : status;
+  return `<span class="badge ${status === "paid" ? "paid" : status}">${label}</span>`;
 }
 
 function greeting() {
@@ -89,7 +100,7 @@ function paymentRow(p, commission) {
     <tr>
       <td>${money(gross)}</td>
       <td>${money(net)}</td>
-      <td>${p.method || "Lightning"}</td>
+      <td>${p.method || "Cash App"}</td>
       <td>${fmtTime(p.settledAt || p.createdAt)}</td>
       <td>${statusBadge(p.status)}</td>
     </tr>`;
@@ -113,6 +124,144 @@ function setView(view) {
   document.querySelectorAll(".nav-item").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.view === view);
   });
+  if (view === "monthly") loadMonthly();
+}
+
+function initMonthFilters() {
+  const now = new Date();
+  monthSelect.innerHTML = MONTH_NAMES.map(
+    (name, i) => `<option value="${i + 1}" ${i === now.getMonth() ? "selected" : ""}>${name}</option>`
+  ).join("");
+  const currentYear = now.getFullYear();
+  yearSelect.innerHTML = [currentYear - 1, currentYear, currentYear + 1]
+    .map((y) => `<option value="${y}" ${y === currentYear ? "selected" : ""}>${y}</option>`)
+    .join("");
+}
+
+function fmtDateShort(iso) {
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function drawRevenueChart(daily) {
+  const el = document.getElementById("revenueChart");
+  if (!daily.length) {
+    el.innerHTML = '<p class="sub">No data for this month</p>';
+    return;
+  }
+
+  const w = 640;
+  const h = 200;
+  const pad = 36;
+  const maxGross = Math.max(...daily.map((d) => d.gross), 1);
+  const maxTxn = Math.max(...daily.map((d) => d.transactions), 1);
+  const step = (w - pad * 2) / Math.max(daily.length - 1, 1);
+
+  const grossPoints = daily
+    .map((d, i) => {
+      const x = pad + i * step;
+      const y = h - pad - (d.gross / maxGross) * (h - pad * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  const txnPoints = daily
+    .map((d, i) => {
+      const x = pad + i * step;
+      const y = h - pad - (d.transactions / maxTxn) * (h - pad * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  const labels = daily
+    .map((d, i) => {
+      const x = pad + i * step;
+      const label = d.date.slice(8, 10);
+      return `<text x="${x}" y="${h - 8}" text-anchor="middle" font-size="10" fill="#64748b">${label}</text>`;
+    })
+    .join("");
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" width="100%" height="220">
+      <polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="${grossPoints}" />
+      <polyline fill="none" stroke="#22c55e" stroke-width="2" points="${txnPoints}" />
+      ${labels}
+      <text x="12" y="16" font-size="11" fill="#2563eb">Revenue ($)</text>
+      <text x="100" y="16" font-size="11" fill="#22c55e">Transactions</text>
+    </svg>`;
+}
+
+function renderMonthly() {
+  if (!monthlyData) return;
+  const c = monthlyData.commissionPercent || 0;
+
+  document.getElementById("mGross").textContent = money(monthlyData.grossRevenue);
+  document.getElementById("mTxnCount").textContent = `${monthlyData.transactionCount} transactions`;
+  document.getElementById("mNetLabel").textContent = `Your Balance (After ${pct(c)})`;
+  document.getElementById("mNet").textContent = money(monthlyData.netRevenue);
+  document.getElementById("mAvg").textContent = money(monthlyData.avgTransaction);
+  document.getElementById("mHigh").textContent = money(monthlyData.highest);
+  document.getElementById("mLow").textContent = money(monthlyData.lowest);
+  document.getElementById("monthlyAfterHeader").textContent = `AFTER ${pct(c)}`;
+
+  drawRevenueChart(monthlyData.dailyBreakdown);
+
+  const method = monthlyData.paymentMethods[0] || {
+    name: "Cash App",
+    percent: 100,
+    gross: 0,
+    count: 0,
+  };
+  document.getElementById("methodBreakdown").innerHTML = `
+    <div class="method-row">
+      <div>
+        <strong>${method.name}</strong>
+        <div class="method-meta">${method.percent.toFixed(1)}% of total revenue</div>
+      </div>
+      <div style="text-align:right">
+        <strong>${money(method.gross)}</strong>
+        <div class="method-meta">${method.count} payments</div>
+      </div>
+      <div class="method-bar"><span style="width:100%"></span></div>
+    </div>`;
+
+  document.getElementById("monthlyDailyTable").innerHTML =
+    monthlyData.dailyBreakdown
+      .map(
+        (d) => `
+      <tr>
+        <td>${fmtDateShort(d.date)}</td>
+        <td><span class="txn-link">${d.transactions}</span></td>
+        <td class="gross-text">${money(d.gross)}</td>
+        <td class="net-text">${money(d.net)}</td>
+        <td><span class="badge paid">completed</span></td>
+      </tr>`
+      )
+      .join("") || `<tr><td colspan="5">No payments this month</td></tr>`;
+}
+
+async function loadMonthly() {
+  const month = Number(monthSelect.value);
+  const year = Number(yearSelect.value);
+  monthlyData = await api(`/api/dashboard/monthly?month=${month}&year=${year}`);
+  renderMonthly();
+}
+
+function exportMonthlyCsv() {
+  if (!monthlyData) return;
+  const c = monthlyData.commissionPercent || 0;
+  const lines = [
+    ["Date", "Transactions", "Gross", `After ${c}%`, "Status"].join(","),
+    ...monthlyData.dailyBreakdown.map((d) =>
+      [d.date, d.transactions, d.gross.toFixed(2), d.net.toFixed(2), "Completed"].join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `globa-pay-${monthlyData.year}-${String(monthlyData.month).padStart(2, "0")}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function renderDashboard() {
@@ -163,6 +312,7 @@ async function loadDashboard() {
   dashboardData = summary;
   allPayments = paymentsData.payments;
   renderDashboard();
+  initMonthFilters();
 }
 
 async function copyPayLink() {
@@ -234,6 +384,9 @@ checkoutCopyBtn.addEventListener("click", copyPayLink);
 heroShareBtn.addEventListener("click", copyPayLink);
 
 searchInput.addEventListener("input", () => renderDashboard());
+
+monthFilterBtn.addEventListener("click", loadMonthly);
+exportCsvBtn.addEventListener("click", exportMonthlyCsv);
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => setView(btn.dataset.view));
