@@ -49,9 +49,9 @@ body {
   display: none !important;
 }
 
-/* ── Top dark section ── */
+/* ── Top branded section ── */
 .screen-top {
-  background: #000;
+  background: linear-gradient(145deg, #0f172a 0%, #1e3a8a 55%, #1d4ed8 100%);
   color: #fff;
   padding: 20px 20px 24px;
   flex-shrink: 0;
@@ -70,15 +70,18 @@ body {
   gap: 8px;
 }
 
-.merchant-icon {
+.merchant-mark {
   width: 28px;
   height: 28px;
-  background: #00d632;
-  border-radius: 6px;
+  background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.4);
 }
 
 .merchant-name {
@@ -86,12 +89,14 @@ body {
   font-weight: 600;
 }
 
-.instant-badge {
-  font-size: 0.75rem;
-  color: #ccc;
+.secure-badge {
+  font-size: 0.72rem;
+  color: #bfdbfe;
   display: flex;
   align-items: center;
   gap: 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .amount-row {
