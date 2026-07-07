@@ -16,7 +16,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const INVOICE_EXPIRY_SEC = 600;
 const SESSION_COOKIE = "payme_session";
-const IS_PROD = process.env.NODE_ENV === "production";
+const USE_SECURE_COOKIES =
+  process.env.NODE_ENV === "production" ||
+  Boolean(process.env.RAILWAY_ENVIRONMENT) ||
+  Boolean(process.env.RAILWAY_PUBLIC_DOMAIN);
+
+app.set("trust proxy", 1);
 
 function normalizeToken(value) {
   if (!value) return "";
@@ -52,7 +57,7 @@ function setSessionCookie(res, token, expiresAt) {
     "SameSite=Lax",
     `Max-Age=${maxAge}`,
   ];
-  if (IS_PROD) parts.push("Secure");
+  if (USE_SECURE_COOKIES) parts.push("Secure");
   res.setHeader("Set-Cookie", parts.join("; "));
 }
 
@@ -64,7 +69,7 @@ function clearSessionCookie(res) {
     "SameSite=Lax",
     "Max-Age=0",
   ];
-  if (IS_PROD) parts.push("Secure");
+  if (USE_SECURE_COOKIES) parts.push("Secure");
   res.setHeader("Set-Cookie", parts.join("; "));
 }
 
@@ -290,11 +295,11 @@ async function lookupInvoiceSettled(paymentHash) {
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body || {};
-    if (!username || !password) {
+    if (!username?.trim() || !password) {
       return res.status(400).json({ error: "Username and password required" });
     }
 
-    const user = await db.findUserByUsername(username);
+    const user = await db.findUserByUsername(username.trim());
     if (!user || !db.verifyPassword(password, user.passwordHash)) {
       return res.status(401).json({ error: "Invalid username or password" });
     }

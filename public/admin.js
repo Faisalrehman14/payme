@@ -115,18 +115,29 @@ async function boot() {
 loginBtn.addEventListener("click", async () => {
   loginError.textContent = "";
   try {
-    await api("/api/auth/login", {
+    const data = await api("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({
         username: loginUser.value.trim(),
         password: loginPass.value,
       }),
     });
+    if (data.user.role !== "admin") {
+      window.location.href = "/dashboard";
+      return;
+    }
     showApp();
     await loadAll();
   } catch (err) {
     loginError.textContent = err.message;
   }
+});
+
+loginPass.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") loginBtn.click();
+});
+loginUser.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") loginBtn.click();
 });
 
 logoutBtn.addEventListener("click", async () => {
