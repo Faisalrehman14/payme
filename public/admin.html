@@ -54,6 +54,7 @@
         <button type="button" class="nav-item" data-view="offices">Offices</button>
         <button type="button" class="nav-item" data-view="users">Users</button>
         <button type="button" class="nav-item" data-view="payments">Payments</button>
+        <button type="button" class="nav-item" data-view="audit">Audit Log</button>
         <button type="button" class="nav-item" data-view="system">System</button>
       </nav>
 
@@ -123,6 +124,7 @@
               <thead>
                 <tr>
                   <th>Office</th>
+                  <th>Status</th>
                   <th>Payment Link</th>
                   <th>Commission</th>
                   <th>Paid</th>
@@ -204,6 +206,33 @@
         </div>
       </section>
 
+      <section class="admin-view hidden" id="view-audit">
+        <div class="page-head">
+          <div>
+            <p class="breadcrumb">Admin / Audit</p>
+            <h1>Audit Log</h1>
+            <p class="sub">Track admin actions across offices and user accounts.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Admin</th>
+                  <th>Action</th>
+                  <th>Target</th>
+                  <th>IP</th>
+                </tr>
+              </thead>
+              <tbody id="auditTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section class="admin-view hidden" id="view-system">
         <div class="page-head">
           <div>
@@ -222,7 +251,9 @@
             <li>Passwords hashed with scrypt — never stored in plain text</li>
             <li>Office users only see their own office data</li>
             <li>Login rate limiting enabled</li>
-            <li>Payments auto-sync from Alby when hub is online</li>
+            <li>Background payment sync worker (every 30 seconds)</li>
+            <li>Audit log for all admin actions</li>
+            <li>Office active/inactive control</li>
           </ul>
         </div>
       </section>

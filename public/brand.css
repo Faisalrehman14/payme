@@ -166,6 +166,34 @@ a:hover { text-decoration: underline; }
   color: #1d4ed8;
 }
 
+.skeleton {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-card {
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+}
+
+.skeleton-row td {
+  padding: 12px 10px;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .table-wrap { overflow-x: auto; }
 
 table {

@@ -49,6 +49,20 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS idx_payments_office_created ON payments(office_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payments_hash ON payments(payment_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  username TEXT,
+  action TEXT NOT NULL,
+  target_type TEXT,
+  target_id TEXT,
+  details JSONB,
+  ip TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC);
 `;
 
 function slugify(name) {
@@ -281,6 +295,11 @@ async function getOfficeBySlug(slug) {
   return mapOffice(rows[0]);
 }
 
+async function getOfficeBySlugAny(slug) {
+  const { rows } = await pool.query("SELECT * FROM offices WHERE slug = $1 LIMIT 1", [slug]);
+  return mapOffice(rows[0]);
+}
+
 async function getOfficeById(id) {
   const { rows } = await pool.query("SELECT * FROM offices WHERE id = $1 LIMIT 1", [id]);
   return mapOffice(rows[0]);
@@ -311,6 +330,16 @@ async function updateOfficeCommission(officeId, commissionPercent) {
   const { rows } = await pool.query(
     `UPDATE offices SET commission_percent = $1 WHERE id = $2 RETURNING *`,
     [pct, officeId]
+  );
+  return mapOffice(rows[0]);
+}
+
+async function updateOfficeActive(officeId, active) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const { rows } = await pool.query(
+    `UPDATE offices SET active = $1 WHERE id = $2 RETURNING *`,
+    [Boolean(active), officeId]
   );
   return mapOffice(rows[0]);
 }
@@ -549,6 +578,60 @@ async function listAllPayments(limit = 200) {
   return rows.map(mapPayment);
 }
 
+async function listPendingPayments(limit = 100) {
+  const { rows } = await pool.query(
+    `SELECT * FROM payments
+     WHERE status = 'pending'
+     ORDER BY created_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+  return rows.map(mapPayment);
+}
+
+function mapAudit(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    username: row.username,
+    action: row.action,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    details: row.details,
+    ip: row.ip,
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
+async function createAuditLog({ userId, username, action, targetType, targetId, details, ip }) {
+  const id = crypto.randomUUID();
+  const { rows } = await pool.query(
+    `INSERT INTO audit_logs (id, user_id, username, action, target_type, target_id, details, ip)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [
+      id,
+      userId || null,
+      username || null,
+      action,
+      targetType || null,
+      targetId || null,
+      details ? JSON.stringify(details) : null,
+      ip || null,
+    ]
+  );
+  return mapAudit(rows[0]);
+}
+
+async function listAuditLogs(limit = 100) {
+  const { rows } = await pool.query(
+    `SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT $1`,
+    [limit]
+  );
+  return rows.map(mapAudit);
+}
+
 async function getOfficeStats(officeId) {
   const { rows } = await pool.query(
     `SELECT
@@ -580,9 +663,11 @@ module.exports = {
   deleteSession,
   listOffices,
   getOfficeBySlug,
+  getOfficeBySlugAny,
   getOfficeById,
   createOffice,
   updateOfficeCommission,
+  updateOfficeActive,
   getDashboardStats,
   getMonthlyStats,
   netUsd,
@@ -595,6 +680,9 @@ module.exports = {
   getPaymentByHash,
   listPaymentsForOffice,
   listAllPayments,
+  listPendingPayments,
   getOfficeStats,
+  createAuditLog,
+  listAuditLogs,
   slugify,
 };

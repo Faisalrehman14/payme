@@ -385,7 +385,20 @@ function renderDashboard() {
   renderSettings();
 }
 
+function setDashboardLoading() {
+  document.querySelectorAll(".stat-value").forEach((el) => {
+    el.innerHTML = '<span class="skeleton" style="display:inline-block;width:80px;height:24px"></span>';
+  });
+  const recentTable = document.getElementById("recentPaymentsTable");
+  if (recentTable) {
+    recentTable.innerHTML = Array.from({ length: 3 })
+      .map(() => `<tr class="skeleton-row">${"<td><div class=\"skeleton\"></div></td>".repeat(5)}</tr>`)
+      .join("");
+  }
+}
+
 async function loadDashboard() {
+  setDashboardLoading();
   const [summary, paymentsData] = await Promise.all([
     api("/api/dashboard/summary"),
     api("/api/dashboard/payments"),

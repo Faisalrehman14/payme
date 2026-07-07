@@ -30,10 +30,29 @@ const userError = document.getElementById("userError");
 const userSuccess = document.getElementById("userSuccess");
 const usersTable = document.getElementById("usersTable");
 const paymentsTable = document.getElementById("paymentsTable");
+const auditTable = document.getElementById("auditTable");
 
 let refreshTimer = null;
 let allPayments = [];
+let auditLogs = [];
 const REFRESH_MS = 10000;
+
+function skeletonRows(cols, rows = 4) {
+  return Array.from({ length: rows })
+    .map(() => `<tr class="skeleton-row">${"<td><div class=\"skeleton\"></div></td>".repeat(cols)}</tr>`)
+    .join("");
+}
+
+function setLoading() {
+  overviewStats.innerHTML = Array.from({ length: 6 })
+    .map(() => `<div class="stat-card skeleton-card"><div class="skeleton"></div></div>`)
+    .join("");
+  recentPaymentsTable.innerHTML = skeletonRows(5);
+  officesTable.innerHTML = skeletonRows(7);
+  usersTable.innerHTML = skeletonRows(4);
+  paymentsTable.innerHTML = skeletonRows(6);
+  if (auditTable) auditTable.innerHTML = skeletonRows(5);
+}
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -58,6 +77,16 @@ function fmtTime(iso) {
 function statusBadge(status) {
   const label = status === "paid" ? "completed" : status;
   return `<span class="badge ${status === "paid" ? "paid" : status}">${label}</span>`;
+}
+
+function officeStatusBadge(active) {
+  return active
+    ? `<span class="badge paid">Active</span>`
+    : `<span class="badge expired">Inactive</span>`;
+}
+
+function formatAction(action) {
+  return (action || "").replace(/\./g, " · ");
 }
 
 function setView(view) {
@@ -119,10 +148,27 @@ function renderOverview(overview) {
     <div class="stat-card"><div class="stat-label">Alby NWC</div><div class="stat-value">${overview.health.nwc ? "Online" : "Offline"}</div></div>
     <div class="stat-card"><div class="stat-label">Database</div><div class="stat-value">${overview.health.database?.ok ? "OK" : "Error"}</div></div>
     <div class="stat-card"><div class="stat-label">Backend</div><div class="stat-value">${overview.health.database?.backend || "—"}</div></div>
-    <div class="stat-card"><div class="stat-label">Auto Sync</div><div class="stat-value">Active</div></div>
+    <div class="stat-card"><div class="stat-label">Auto Sync</div><div class="stat-value">${overview.health.sync?.lastSyncAt ? "Active" : "Starting"}</div></div>
   `;
 
   liveBadge.textContent = `Live · ${new Date().toLocaleTimeString()}`;
+}
+
+function renderAudit(logs) {
+  if (!auditTable) return;
+  auditTable.innerHTML =
+    logs
+      .map(
+        (log) => `
+      <tr>
+        <td>${fmtTime(log.createdAt)}</td>
+        <td>${log.username || "—"}</td>
+        <td><code>${formatAction(log.action)}</code></td>
+        <td>${log.targetType || "—"} ${log.targetId ? `<span class="sub">${log.targetId.slice(0, 8)}…</span>` : ""}</td>
+        <td>${log.ip || "—"}</td>
+      </tr>`
+      )
+      .join("") || `<tr><td colspan="5">No admin actions logged yet</td></tr>`;
 }
 
 function renderOffices(offices) {
@@ -135,6 +181,14 @@ function renderOffices(offices) {
       (o) => `
     <tr>
       <td><strong>${o.name}</strong><br><span class="sub">/${o.slug}</span></td>
+      <td>
+        <div class="inline-actions">
+          ${officeStatusBadge(o.active !== false)}
+          <button class="btn btn-secondary btn-sm" type="button" data-toggle-active="${o.id}" data-active="${o.active !== false}">
+            ${o.active !== false ? "Deactivate" : "Activate"}
+          </button>
+        </div>
+      </td>
       <td><div class="link-box">${o.payLink}</div></td>
       <td>
         <div class="inline-actions">
@@ -147,7 +201,7 @@ function renderOffices(offices) {
       <td>${money(o.stats.totalUsd)}</td>
     </tr>`
     )
-    .join("") || `<tr><td colspan="6">No offices yet</td></tr>`;
+    .join("") || `<tr><td colspan="7">No offices yet — create your first office above.</td></tr>`;
 }
 
 function renderUsers(users) {
@@ -195,18 +249,22 @@ function renderPayments(payments) {
 }
 
 async function loadAll() {
-  const [overview, officesData, usersData, paymentsData] = await Promise.all([
+  setLoading();
+  const [overview, officesData, usersData, paymentsData, auditData] = await Promise.all([
     api("/api/admin/overview"),
     api("/api/admin/offices"),
     api("/api/admin/users"),
     api("/api/admin/payments"),
+    api("/api/admin/audit").catch(() => ({ logs: [] })),
   ]);
 
   allPayments = paymentsData.payments;
+  auditLogs = auditData.logs || [];
   renderOverview(overview);
   renderOffices(officesData.offices);
   renderUsers(usersData.users);
   renderPayments(allPayments);
+  renderAudit(auditLogs);
 }
 
 async function boot() {
@@ -313,6 +371,24 @@ createUserBtn.addEventListener("click", async () => {
 });
 
 officesTable.addEventListener("click", async (e) => {
+  const toggleBtn = e.target.closest("[data-toggle-active]");
+  if (toggleBtn) {
+    const officeId = toggleBtn.dataset.toggleActive;
+    const currentlyActive = toggleBtn.dataset.active === "true";
+    const action = currentlyActive ? "deactivate" : "activate";
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} this office?`)) return;
+    try {
+      await api(`/api/admin/offices/${officeId}/active`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: !currentlyActive }),
+      });
+      await loadAll();
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+
   const btn = e.target.closest("[data-save-commission]");
   if (!btn) return;
   const officeId = btn.dataset.saveCommission;

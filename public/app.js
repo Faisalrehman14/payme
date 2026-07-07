@@ -318,6 +318,15 @@ async function loadOffice() {
     officeInfo = data.office;
     if (merchantName) merchantName.textContent = officeInfo.name;
     document.title = `${officeInfo.name} — Globa Pay`;
+
+    if (officeInfo.active === false) {
+      showError("This office is not accepting payments right now. Contact your office.");
+      payBtn.disabled = true;
+      document.querySelectorAll(".chip, .amount-btn, #keypad button").forEach((el) => {
+        el.disabled = true;
+        el.style.opacity = "0.4";
+      });
+    }
   } catch (err) {
     showError(err.message);
     payBtn.disabled = true;

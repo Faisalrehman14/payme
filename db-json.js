@@ -10,6 +10,7 @@ const DEFAULT_DB = {
   users: [],
   payments: [],
   sessions: [],
+  auditLogs: [],
 };
 
 function ensureDataDir() {
@@ -145,6 +146,11 @@ async function getOfficeBySlug(slug) {
   return db.offices.find((o) => o.slug === slug && o.active !== false) || null;
 }
 
+async function getOfficeBySlugAny(slug) {
+  const db = readDb();
+  return db.offices.find((o) => o.slug === slug) || null;
+}
+
 async function getOfficeById(id) {
   const db = readDb();
   return db.offices.find((o) => o.id === id) || null;
@@ -185,6 +191,16 @@ async function updateOfficeCommission(officeId, commissionPercent) {
     if (idx !== -1) d.offices[idx].commissionPercent = pct;
   });
   return { ...office, commissionPercent: pct };
+}
+
+async function updateOfficeActive(officeId, active) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  updateDb((d) => {
+    const idx = d.offices.findIndex((o) => o.id === officeId);
+    if (idx !== -1) d.offices[idx].active = Boolean(active);
+  });
+  return { ...office, active: Boolean(active) };
 }
 
 function netUsd(gross, commissionPercent) {
@@ -385,6 +401,36 @@ async function listAllPayments(limit = 200) {
   return db.payments.slice(0, limit);
 }
 
+async function listPendingPayments(limit = 100) {
+  const db = readDb();
+  return db.payments.filter((p) => p.status === "pending").slice(0, limit);
+}
+
+async function createAuditLog({ userId, username, action, targetType, targetId, details, ip }) {
+  const entry = {
+    id: newId(),
+    userId: userId || null,
+    username: username || null,
+    action,
+    targetType: targetType || null,
+    targetId: targetId || null,
+    details: details || null,
+    ip: ip || null,
+    createdAt: new Date().toISOString(),
+  };
+  updateDb((db) => {
+    if (!db.auditLogs) db.auditLogs = [];
+    db.auditLogs.unshift(entry);
+    db.auditLogs = db.auditLogs.slice(0, 500);
+  });
+  return entry;
+}
+
+async function listAuditLogs(limit = 100) {
+  const db = readDb();
+  return (db.auditLogs || []).slice(0, limit);
+}
+
 async function getOfficeStats(officeId) {
   const payments = await listPaymentsForOffice(officeId, 1000);
   const paid = payments.filter((p) => p.status === "paid");
@@ -407,9 +453,11 @@ module.exports = {
   deleteSession,
   listOffices,
   getOfficeBySlug,
+  getOfficeBySlugAny,
   getOfficeById,
   createOffice,
   updateOfficeCommission,
+  updateOfficeActive,
   getDashboardStats,
   getMonthlyStats,
   netUsd,
@@ -422,6 +470,9 @@ module.exports = {
   getPaymentByHash,
   listPaymentsForOffice,
   listAllPayments,
+  listPendingPayments,
   getOfficeStats,
+  createAuditLog,
+  listAuditLogs,
   slugify,
 };
