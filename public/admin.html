@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Portal — Lightning Pay</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+  <div class="wrap">
+    <section id="loginSection" class="login-wrap card">
+      <h1>Admin Login</h1>
+      <p class="sub">Manage offices, users, and payment links</p>
+      <div class="row">
+        <input id="loginUser" type="text" placeholder="Username" autocomplete="username" />
+      </div>
+      <div class="row">
+        <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
+      </div>
+      <button id="loginBtn" type="button">Login</button>
+      <p class="error" id="loginError"></p>
+      <p class="sub" style="margin-top:16px">
+        Office staff? <a href="/dashboard">Go to dashboard</a>
+      </p>
+    </section>
+
+    <section id="appSection" class="hidden">
+      <div class="topbar">
+        <div>
+          <h1>Admin Portal</h1>
+          <p class="sub">Create offices and assign login accounts</p>
+        </div>
+        <div>
+          <nav>
+            <a href="/dashboard">Office Dashboard</a>
+          </nav>
+          <button id="logoutBtn" class="secondary" type="button">Logout</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Create Office</h2>
+        <p class="sub">Each office gets its own customer payment link</p>
+        <div class="row">
+          <input id="officeName" type="text" placeholder="Office name (e.g. Downtown Branch)" />
+          <input id="officeSlug" type="text" placeholder="Link slug (optional)" />
+          <button id="createOfficeBtn" type="button">Create Office</button>
+        </div>
+        <p class="error" id="officeError"></p>
+      </div>
+
+      <div class="card">
+        <h2>Offices</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Payment Link</th>
+              <th>Paid</th>
+              <th>Pending</th>
+              <th>Total USD</th>
+            </tr>
+          </thead>
+          <tbody id="officesTable"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Create Office User</h2>
+        <p class="sub">Office staff can login and verify their own payments</p>
+        <div class="row">
+          <select id="userOffice"></select>
+          <input id="userName" type="text" placeholder="Username" />
+          <input id="userPass" type="password" placeholder="Password (min 6)" />
+          <button id="createUserBtn" type="button">Create User</button>
+        </div>
+        <p class="error" id="userError"></p>
+      </div>
+
+      <div class="card">
+        <h2>Office Users</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Office</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>All Payments</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Office</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="paymentsTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Office Dashboard — Lightning Pay</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/dashboard.css" />
+</head>
+<body>
+  <div class="wrap">
+    <section id="loginSection" class="login-wrap card">
+      <h1>Office Login</h1>
+      <p class="sub">View and verify payments for your office</p>
+      <div class="row">
+        <input id="loginUser" type="text" placeholder="Username" autocomplete="username" />
+      </div>
+      <div class="row">
+        <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
+      </div>
+      <button id="loginBtn" type="button">Login</button>
+      <p class="error" id="loginError"></p>
+      <p class="sub" style="margin-top:16px">
+        Admin? <a href="/admin">Go to admin portal</a>
+      </p>
+    </section>
+
+    <section id="appSection" class="hidden">
+      <div class="topbar">
+        <div>
+          <h1 id="officeTitle">Office Dashboard</h1>
+          <p class="sub" id="officeSubtitle">Verify customer payments here</p>
+        </div>
+        <button id="logoutBtn" class="secondary" type="button">Logout</button>
+      </div>
+
+      <div class="card">
+        <h2>Your Payment Link</h2>
+        <p class="sub">Share this link with customers at your office</p>
+        <div class="link-box" id="payLink">—</div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="card">
+        <div class="topbar">
+          <h2>Payments</h2>
+          <button id="refreshBtn" class="secondary" type="button">Refresh</button>
+        </div>
+        <p class="refresh-note">Auto-refreshes every 15 seconds</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Amount</th>
+              <th>Sats</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="paymentsTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+@import url("admin.css");
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  background: #0f1115;
+  border: 1px solid #2a3140;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.stat .label {
+  color: #9aa3b2;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.stat .value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.refresh-note {
+  color: #9aa3b2;
+  font-size: 13px;
+  margin-bottom: 12px;
+}

@@ -17,6 +17,11 @@ const cashAppBtn = document.getElementById("cashAppBtn");
 const copyInvoiceBtn = document.getElementById("copyInvoiceBtn");
 const expiryTimer = document.getElementById("expiryTimer");
 const invoiceBottom = document.getElementById("invoiceBottom");
+const merchantName = document.querySelector(".merchant-name");
+
+const officeSlugMatch = window.location.pathname.match(/^\/pay\/([^/]+)/i);
+const officeSlug = officeSlugMatch ? officeSlugMatch[1] : null;
+let officeInfo = null;
 
 let amountStr = "0";
 let pollTimer = null;
@@ -191,6 +196,11 @@ async function createInvoice() {
   showError("");
   const amountUsd = getAmountUsd();
 
+  if (!officeSlug) {
+    showError("Invalid payment link");
+    return;
+  }
+
   if (amountUsd < 1) {
     showError("Minimum $1");
     return;
@@ -203,7 +213,7 @@ async function createInvoice() {
     const res = await fetch("/api/invoice", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amountUsd }),
+      body: JSON.stringify({ amountUsd, officeSlug }),
     });
 
     let data;
@@ -293,3 +303,25 @@ copyInvoiceBtn.addEventListener("click", async () => {
 });
 
 renderAmount();
+
+async function loadOffice() {
+  if (!officeSlug) {
+    showError("Use your office payment link");
+    payBtn.disabled = true;
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/offices/${encodeURIComponent(officeSlug)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Office not found");
+    officeInfo = data.office;
+    if (merchantName) merchantName.textContent = officeInfo.name;
+    document.title = `${officeInfo.name} — Lightning Pay`;
+  } catch (err) {
+    showError(err.message);
+    payBtn.disabled = true;
+  }
+}
+
+loadOffice();
