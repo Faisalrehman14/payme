@@ -44,10 +44,81 @@ function getLightningUri(invoice) {
   return bolt11 ? `lightning:${bolt11}` : "";
 }
 
+function getCashAppUniversalUrl(bolt11) {
+  return `https://cash.app/launch/lightning/${bolt11}`;
+}
+
+function isAndroid() {
+  return /Android/i.test(navigator.userAgent || "");
+}
+
+function isIOS() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+}
+
+function getInAppPlatform() {
+  const ua = navigator.userAgent || "";
+  if (/Instagram/i.test(ua)) return "instagram";
+  if (/FBAN|FBAV|Messenger/i.test(ua)) return "facebook";
+  if (/WhatsApp/i.test(ua)) return "whatsapp";
+  if (/TikTok/i.test(ua)) return "tiktok";
+  if (/Twitter|X-Twitter/i.test(ua)) return "twitter";
+  if (/LinkedInApp/i.test(ua)) return "linkedin";
+  if (/Snapchat/i.test(ua)) return "snapchat";
+  if (/; wv\)|WebView/i.test(ua)) return "webview";
+  return null;
+}
+
+function isInAppBrowser() {
+  return Boolean(getInAppPlatform());
+}
+
+function getCashAppOpenUrl(bolt11) {
+  if (!bolt11) return "#";
+
+  const lightning = `lightning:${bolt11}`;
+  const universal = getCashAppUniversalUrl(bolt11);
+
+  if (isAndroid()) {
+    const fallback = encodeURIComponent(universal);
+    return `intent://cash.app/launch/lightning/${bolt11}#Intent;scheme=https;package=com.squareup.cash;S.browser_fallback_url=${fallback};end`;
+  }
+
+  const inApp = getInAppPlatform();
+  if (inApp === "instagram") {
+    return `instagram://extbrowser/?url=${encodeURIComponent(universal)}`;
+  }
+  if (inApp) {
+    // Messenger/Facebook/etc cannot open lightning: — escape to Safari with Cash App link
+    return `x-safari-https://cash.app/launch/lightning/${bolt11}`;
+  }
+
+  if (isIOS()) {
+    return lightning;
+  }
+
+  return lightning;
+}
+
+function getSafariEscapeUrl() {
+  const path = location.href.replace(/^https?:\/\//, "");
+  if (isAndroid()) {
+    return `intent://${path}#Intent;scheme=https;end`;
+  }
+  return `x-safari-https://${path}`;
+}
+
 function setCashAppLink(invoice) {
+  const bolt11 = getBolt11(invoice);
   if (!cashAppBtn) return;
-  const uri = getLightningUri(invoice);
-  cashAppBtn.href = uri || "#";
+  cashAppBtn.href = getCashAppOpenUrl(bolt11);
+}
+
+function setSafariEscapeLink() {
+  const openSafariBtn = document.getElementById("openSafariBtn");
+  if (!openSafariBtn || !isInAppBrowser()) return;
+  openSafariBtn.href = getSafariEscapeUrl();
+  openSafariBtn.classList.remove("hidden");
 }
 
 function setCashAppEnabled(enabled) {
@@ -60,17 +131,11 @@ function setCashAppEnabled(enabled) {
   }
 }
 
-function isInAppBrowser() {
-  const ua = navigator.userAgent || "";
-  return /FBAN|FBAV|Instagram|Line\/|Twitter|WhatsApp|Snapchat|TikTok|Messenger|LinkedInApp|GSA\/|; wv\)|WebView/i.test(
-    ua
-  );
-}
-
 function showInAppBrowserHelp() {
   const html = `
-    <strong>Tip:</strong> Tap <strong>Open in Cash App</strong> below.
-    If it does not open, use Cash App → Bitcoin → Pay → scan the QR code.
+    <strong>In-app browser detected</strong>
+    Tap <strong>Open in Safari</strong> first, then tap <strong>Open in Cash App</strong>.
+    Or scan the QR from Cash App → Bitcoin → Pay.
   `;
   if (inAppNotice) {
     inAppNotice.innerHTML = html;
@@ -80,18 +145,16 @@ function showInAppBrowserHelp() {
     invoiceInAppNotice.innerHTML = html;
     invoiceInAppNotice.classList.remove("hidden");
   }
+  setSafariEscapeLink();
 }
 
 function openInCashApp(e) {
   if (e) e.preventDefault();
-  if (invoiceBottom.classList.contains("expired")) return;
+  if (invoiceBottom.classList.contains("expired")) return false;
   const bolt11 = getBolt11(invoiceText.value);
-  if (!bolt11) return;
-  window.location.href = `lightning:${bolt11}`;
-}
-
-function isMobile() {
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (!bolt11) return false;
+  window.location.href = getCashAppOpenUrl(bolt11);
+  return false;
 }
 
 function getAmountUsd() {
@@ -273,6 +336,7 @@ async function createInvoice() {
     invoiceText.value = data.paymentRequest;
     activePaymentHash = data.paymentHash;
     setCashAppLink(data.paymentRequest);
+    setSafariEscapeLink();
 
     showInvoiceScreen();
 
@@ -334,13 +398,7 @@ plusBtn.addEventListener("click", () => adjustAmount(1));
 payBtn.addEventListener("click", createInvoice);
 backBtn.addEventListener("click", showPayScreen);
 
-cashAppBtn.addEventListener("click", (e) => {
-  if (!invoiceText.value || invoiceBottom.classList.contains("expired")) {
-    e.preventDefault();
-    return;
-  }
-  openInCashApp(e);
-});
+cashAppBtn.addEventListener("click", openInCashApp);
 
 copyInvoiceBtn.addEventListener("click", async () => {
   if (!invoiceText.value) return;
