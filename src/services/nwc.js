@@ -1,6 +1,8 @@
 const { NWCClient } = require("@getalby/sdk/nwc");
 const { NWC_URL, ALBY_TOKEN } = require("../config");
 
+const NWC_TIMEOUT_MS = 20000;
+
 function normalizeToken(value) {
   if (!value) return "";
   return value.trim().replace(/^["']|["']$/g, "");
@@ -69,15 +71,21 @@ function getAlbyToken() {
   return token;
 }
 
+function getPaymentProvider() {
+  if (getAlbyToken()) return "alby";
+  if (getNwcUrl()) return "nwc";
+  return null;
+}
+
 function hasCredentials() {
-  return Boolean(getNwcUrl()) || Boolean(getAlbyToken());
+  return Boolean(getPaymentProvider());
 }
 
 function requireCredentials(res) {
   if (!hasCredentials()) {
     const parsed = parseNwcUrl(NWC_URL || "");
     const token = normalizeToken(ALBY_TOKEN || "");
-    let error = parsed.error || "Add NWC_URL or ALBY_API_TOKEN in Railway Variables.";
+    let error = parsed.error || "Add ALBY_API_TOKEN or NWC_URL in Railway Variables.";
 
     if (token.startsWith("nostr+walletconnect://")) {
       error =
@@ -96,6 +104,15 @@ function createNwcClient() {
     throw new Error(parseNwcUrl(NWC_URL || "").error || "Invalid NWC_URL");
   }
   return new NWCClient({ nostrWalletConnectUrl: url });
+}
+
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
 }
 
 async function albyFetch(endpoint, options = {}) {
@@ -122,36 +139,151 @@ async function albyFetch(endpoint, options = {}) {
   return data;
 }
 
-async function lookupInvoiceSettled(paymentHash) {
-  if (getNwcUrl()) {
-    const client = createNwcClient();
-    try {
-      const result = await client.lookupInvoice({ payment_hash: paymentHash });
-      const settled = result.invoice?.settled ?? result.settled ?? false;
-      return {
-        settled: Boolean(settled),
-        amount: result.invoice?.amount ?? result.amount,
-      };
-    } finally {
-      client.close();
-    }
+async function createInvoicePayment({ sats, description, expirySec }) {
+  const provider = getPaymentProvider();
+  if (!provider) {
+    throw new Error("Payment provider not configured");
   }
 
+  if (provider === "alby") {
+    const invoice = await albyFetch("/invoices", {
+      method: "POST",
+      body: JSON.stringify({ amount: sats, memo: description }),
+    });
+    if (!invoice.payment_request || !invoice.payment_hash) {
+      throw new Error("Could not create Lightning invoice");
+    }
+    return {
+      paymentRequest: invoice.payment_request,
+      paymentHash: invoice.payment_hash,
+      provider: "alby",
+    };
+  }
+
+  const client = createNwcClient();
+  try {
+    const result = await withTimeout(
+      client.makeInvoice({
+        amount: sats * 1000,
+        description,
+        expiry: expirySec,
+      }),
+      NWC_TIMEOUT_MS,
+      "Lightning wallet is not responding. Keep Alby Hub open and unlocked on your computer, or set ALBY_API_TOKEN on the server for 24/7 payments."
+    );
+    const paymentRequest = result.invoice?.bolt11 || result.invoice;
+    const paymentHash = result.invoice?.payment_hash || result.payment_hash;
+    if (!paymentRequest || !paymentHash) {
+      throw new Error("Could not create Lightning invoice");
+    }
+    return { paymentRequest, paymentHash, provider: "nwc" };
+  } finally {
+    client.close();
+  }
+}
+
+async function lookupViaAlby(paymentHash) {
   const invoice = await albyFetch(`/invoices/${paymentHash}`);
   return {
     settled: Boolean(invoice.settled_at),
     amount: invoice.amount,
     settledAt: invoice.settled_at || null,
+    provider: "alby",
   };
+}
+
+async function lookupViaNwc(paymentHash) {
+  const client = createNwcClient();
+  try {
+    const result = await withTimeout(
+      client.lookupInvoice({ payment_hash: paymentHash }),
+      NWC_TIMEOUT_MS,
+      "Lightning wallet is not responding"
+    );
+    const settled = result.invoice?.settled ?? result.settled ?? false;
+    return {
+      settled: Boolean(settled),
+      amount: result.invoice?.amount ?? result.amount,
+      settledAt: null,
+      provider: "nwc",
+    };
+  } finally {
+    client.close();
+  }
+}
+
+async function lookupInvoiceSettled(paymentHash, providerHint) {
+  const preferred = providerHint || getPaymentProvider();
+
+  if (preferred === "alby" && getAlbyToken()) {
+    try {
+      return await lookupViaAlby(paymentHash);
+    } catch (err) {
+      if (!getNwcUrl()) throw err;
+    }
+  }
+
+  if (getNwcUrl()) {
+    return lookupViaNwc(paymentHash);
+  }
+
+  if (getAlbyToken()) {
+    return lookupViaAlby(paymentHash);
+  }
+
+  throw new Error("Payment provider not configured");
+}
+
+async function testPaymentProvider() {
+  const provider = getPaymentProvider();
+  if (!provider) {
+    return { ok: false, provider: null, error: "No payment credentials configured" };
+  }
+
+  if (provider === "alby") {
+    try {
+      const response = await fetch("https://api.getalby.com/balance", {
+        headers: { Authorization: `Bearer ${getAlbyToken()}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return {
+          ok: false,
+          provider: "alby",
+          error: data.error || data.message || "Invalid Alby access token",
+        };
+      }
+      return { ok: true, provider: "alby", error: null };
+    } catch (err) {
+      return { ok: false, provider: "alby", error: err.message };
+    }
+  }
+
+  const client = createNwcClient();
+  try {
+    await withTimeout(
+      client.getInfo(),
+      NWC_TIMEOUT_MS,
+      "Alby Hub / NWC wallet not reachable"
+    );
+    return { ok: true, provider: "nwc", error: null };
+  } catch (err) {
+    return { ok: false, provider: "nwc", error: err.message };
+  } finally {
+    client.close();
+  }
 }
 
 module.exports = {
   parseNwcUrl,
   getNwcUrl,
   getAlbyToken,
+  getPaymentProvider,
   hasCredentials,
   requireCredentials,
   createNwcClient,
   albyFetch,
+  createInvoicePayment,
   lookupInvoiceSettled,
+  testPaymentProvider,
 };

@@ -15,7 +15,7 @@ async function syncPaymentRecord(payment) {
   if (!hasCredentials()) return payment;
 
   try {
-    const result = await lookupInvoiceSettled(payment.paymentHash);
+    const result = await lookupInvoiceSettled(payment.paymentHash, payment.invoiceProvider);
     const settledAt = result.settledAt || (result.settled ? new Date().toISOString() : null);
     if (result.settled) {
       return db.updatePaymentByHash(payment.paymentHash, {

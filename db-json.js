@@ -191,12 +191,14 @@ async function listOffices() {
 
 async function getOfficeBySlug(slug) {
   const db = readDb();
-  return db.offices.find((o) => o.slug === slug && o.active !== false) || null;
+  const key = String(slug || "").trim().toLowerCase();
+  return db.offices.find((o) => o.slug.toLowerCase() === key && o.active !== false) || null;
 }
 
 async function getOfficeBySlugAny(slug) {
   const db = readDb();
-  return db.offices.find((o) => o.slug === slug) || null;
+  const key = String(slug || "").trim().toLowerCase();
+  return db.offices.find((o) => o.slug.toLowerCase() === key) || null;
 }
 
 async function getOfficeById(id) {
@@ -209,7 +211,7 @@ async function createOffice(name, slug) {
   if (!cleanSlug) throw new Error("Invalid office name");
 
   const db = readDb();
-  if (db.offices.some((o) => o.slug === cleanSlug)) {
+  if (db.offices.some((o) => o.slug.toLowerCase() === cleanSlug.toLowerCase())) {
     throw new Error("Office slug already exists");
   }
 
@@ -382,6 +384,7 @@ async function createPayment(record) {
     status: "pending",
     createdAt: new Date().toISOString(),
     settledAt: null,
+    invoiceProvider: record.invoiceProvider || null,
     ...record,
   };
 

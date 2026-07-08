@@ -133,6 +133,7 @@ function mapPayment(row) {
     amountSats: row.amount_sats,
     btcPrice: row.btc_price != null ? Number(row.btc_price) : null,
     status: row.status,
+    invoiceProvider: row.invoice_provider || null,
     createdAt: row.created_at.toISOString(),
     settledAt: row.settled_at ? row.settled_at.toISOString() : null,
     expiresAt: row.expires_at ? row.expires_at.toISOString() : null,
@@ -143,6 +144,9 @@ async function init() {
   await pool.query(SCHEMA_SQL);
   await pool.query(
     "ALTER TABLE offices ADD COLUMN IF NOT EXISTS commission_percent NUMERIC(5, 2) NOT NULL DEFAULT 0"
+  );
+  await pool.query(
+    "ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_provider TEXT"
   );
   await pool.query("DELETE FROM sessions WHERE expires_at <= $1", [Date.now()]);
   await seedPlatformSettings();
@@ -363,14 +367,17 @@ async function listOffices() {
 
 async function getOfficeBySlug(slug) {
   const { rows } = await pool.query(
-    "SELECT * FROM offices WHERE slug = $1 AND active = TRUE LIMIT 1",
+    "SELECT * FROM offices WHERE LOWER(slug) = LOWER($1) AND active = TRUE LIMIT 1",
     [slug]
   );
   return mapOffice(rows[0]);
 }
 
 async function getOfficeBySlugAny(slug) {
-  const { rows } = await pool.query("SELECT * FROM offices WHERE slug = $1 LIMIT 1", [slug]);
+  const { rows } = await pool.query(
+    "SELECT * FROM offices WHERE LOWER(slug) = LOWER($1) LIMIT 1",
+    [slug]
+  );
   return mapOffice(rows[0]);
 }
 
@@ -383,7 +390,7 @@ async function createOffice(name, slug) {
   const cleanSlug = slug || slugify(name);
   if (!cleanSlug) throw new Error("Invalid office name");
 
-  const existing = await pool.query("SELECT id FROM offices WHERE slug = $1", [cleanSlug]);
+  const existing = await pool.query("SELECT id FROM offices WHERE LOWER(slug) = LOWER($1)", [cleanSlug]);
   if (existing.rows.length) throw new Error("Office slug already exists");
 
   const id = crypto.randomUUID();
@@ -571,8 +578,8 @@ async function listUsers() {
 async function createPayment(record) {
   const id = crypto.randomUUID();
   const { rows } = await pool.query(
-    `INSERT INTO payments (id, office_id, payment_hash, amount_usd, amount_sats, btc_price, status, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)
+    `INSERT INTO payments (id, office_id, payment_hash, amount_usd, amount_sats, btc_price, status, expires_at, invoice_provider)
+     VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
      RETURNING *`,
     [
       id,
@@ -582,6 +589,7 @@ async function createPayment(record) {
       record.amountSats,
       record.btcPrice ?? null,
       record.expiresAt,
+      record.invoiceProvider || null,
     ]
   );
   return mapPayment(rows[0]);

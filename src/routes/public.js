@@ -5,13 +5,13 @@ const { INVOICE_EXPIRY_SEC } = require("../config");
 const { officePublicView } = require("../services/views");
 const {
   parseNwcUrl,
-  getNwcUrl,
   getAlbyToken,
   requireCredentials,
-  createNwcClient,
-  albyFetch,
+  createInvoicePayment,
   lookupInvoiceSettled,
+  testPaymentProvider,
 } = require("../services/nwc");
+const { normalizeOfficeSlug } = require("../utils/office-slug");
 const { syncPaymentRecord } = require("../services/payment-sync");
 const { getSyncStatus } = require("../worker/sync-worker");
 
@@ -32,9 +32,13 @@ router.get("/settings/landing", async (_req, res) => {
 
 router.get("/offices/:slug", async (req, res) => {
   try {
-    const office = await db.getOfficeBySlugAny(req.params.slug);
+    const slug = normalizeOfficeSlug(req.params.slug);
+    if (!slug) {
+      return res.status(400).json({ error: "Invalid payment link" });
+    }
+    const office = await db.getOfficeBySlugAny(slug);
     if (!office) {
-      return res.status(404).json({ error: "Office not found" });
+      return res.status(404).json({ error: "Office not found — check your payment link with the office" });
     }
     res.json({ office: officePublicView(office) });
   } catch (err) {
@@ -45,33 +49,19 @@ router.get("/offices/:slug", async (req, res) => {
 router.get("/health", async (_req, res) => {
   const nwc = parseNwcUrl(process.env.NWC_URL || "");
   const token = getAlbyToken();
-  let tokenOk = false;
-  let tokenError = null;
-
-  if (token) {
-    try {
-      const response = await fetch("https://api.getalby.com/balance", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      tokenOk = response.ok;
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        tokenError = data.error || data.message || "invalid access token";
-      }
-    } catch (err) {
-      tokenError = err.message;
-    }
-  }
-
+  const provider = await testPaymentProvider();
   const database = await db.healthCheck();
   const sync = getSyncStatus();
 
   res.json({
-    ok: (nwc.valid || tokenOk) && database.ok,
+    ok: provider.ok && database.ok,
     nwc: nwc.valid,
     nwcError: nwc.valid ? null : nwc.error,
-    token: tokenOk,
-    tokenError,
+    token: Boolean(token),
+    tokenError: token && provider.provider === "alby" && !provider.ok ? provider.error : null,
+    paymentProvider: provider.provider,
+    paymentProviderOk: provider.ok,
+    paymentProviderError: provider.ok ? null : provider.error,
     database,
     sync,
   });
@@ -101,10 +91,13 @@ router.post("/invoice", async (req, res) => {
     }
 
     let office = null;
-    if (officeSlug) {
-      office = await db.getOfficeBySlugAny(officeSlug);
+    const slug = officeSlug ? normalizeOfficeSlug(officeSlug) : "";
+    if (slug) {
+      office = await db.getOfficeBySlugAny(slug);
       if (!office) {
-        return res.status(404).json({ error: "Invalid payment link" });
+        return res.status(404).json({
+          error: "Invalid payment link — this office does not exist. Ask the office for a new link.",
+        });
       }
       if (office.active === false) {
         return res.status(403).json({ error: "This office is not accepting payments right now" });
@@ -120,30 +113,11 @@ router.post("/invoice", async (req, res) => {
     const officeLabel = office ? office.name : "Globa Pay";
     const description = memo || `${officeLabel} — $${usd.toFixed(2)}`;
 
-    let paymentRequest;
-    let paymentHash;
-
-    if (getNwcUrl()) {
-      const client = createNwcClient();
-      try {
-        const result = await client.makeInvoice({
-          amount: sats * 1000,
-          description,
-          expiry: INVOICE_EXPIRY_SEC,
-        });
-        paymentRequest = result.invoice?.bolt11 || result.invoice;
-        paymentHash = result.invoice?.payment_hash || result.payment_hash;
-      } finally {
-        client.close();
-      }
-    } else {
-      const invoice = await albyFetch("/invoices", {
-        method: "POST",
-        body: JSON.stringify({ amount: sats, memo: description }),
-      });
-      paymentRequest = invoice.payment_request;
-      paymentHash = invoice.payment_hash;
-    }
+    const { paymentRequest, paymentHash, provider } = await createInvoicePayment({
+      sats,
+      description,
+      expirySec: INVOICE_EXPIRY_SEC,
+    });
 
     const expiresAt = Date.now() + INVOICE_EXPIRY_SEC * 1000;
 
@@ -156,6 +130,7 @@ router.post("/invoice", async (req, res) => {
         btcPrice,
         status: "pending",
         expiresAt: new Date(expiresAt).toISOString(),
+        invoiceProvider: provider,
       });
     }
 
@@ -177,10 +152,10 @@ router.post("/invoice", async (req, res) => {
       office: office ? officePublicView(office) : null,
     });
   } catch (err) {
-    let message = err.message || "Unknown error";
-    if (message.includes("timeout") || message.includes("Timeout")) {
+    let message = err.message || "Payment could not be started. Please try again.";
+    if (message.includes("timeout") || message.includes("Timeout") || message.includes("not responding")) {
       message =
-        "Alby Hub is not responding. Open Alby Hub, unlock with password, keep it running, then try again.";
+        "Payment system is temporarily offline. Please try again in a few minutes or contact the office.";
     }
     res.status(500).json({ error: message });
   }
@@ -190,11 +165,11 @@ router.get("/invoice/:hash/status", async (req, res) => {
   if (!requireCredentials(res)) return;
 
   try {
-    const result = await lookupInvoiceSettled(req.params.hash);
+    const stored = await db.getPaymentByHash(req.params.hash);
+    const result = await lookupInvoiceSettled(req.params.hash, stored?.invoiceProvider);
     const settled = result.settled;
     const settledAt = result.settledAt || (settled ? new Date().toISOString() : null);
 
-    const stored = await db.getPaymentByHash(req.params.hash);
     if (stored) {
       await syncPaymentRecord(stored);
     }

@@ -160,9 +160,9 @@ function renderOverview(overview) {
       .join("") || `<tr><td colspan="5">No payments yet</td></tr>`;
 
   systemStats.innerHTML = `
-    <div class="stat-card"><div class="stat-label">Alby NWC</div><div class="stat-value">${overview.health.nwc ? "Online" : "Offline"}</div></div>
+    <div class="stat-card"><div class="stat-label">Payments</div><div class="stat-value">${overview.health.paymentProviderOk ? "Online" : "Offline"}</div></div>
+    <div class="stat-card"><div class="stat-label">Provider</div><div class="stat-value">${overview.health.paymentProvider || "—"}</div></div>
     <div class="stat-card"><div class="stat-label">Database</div><div class="stat-value">${overview.health.database?.ok ? "OK" : "Error"}</div></div>
-    <div class="stat-card"><div class="stat-label">Backend</div><div class="stat-value">${overview.health.database?.backend || "—"}</div></div>
     <div class="stat-card"><div class="stat-label">Auto Sync</div><div class="stat-value">${overview.health.sync?.lastSyncAt ? "Active" : "Starting"}</div></div>
   `;
 

@@ -4,7 +4,7 @@ const { requireAuth, requireAdmin, reqBaseUrl } = require("../middleware/auth");
 const { officePublicView, paymentView } = require("../services/views");
 const { logAudit } = require("../services/audit");
 const { syncOfficePayments } = require("../services/payment-sync");
-const { parseNwcUrl } = require("../services/nwc");
+const { parseNwcUrl, testPaymentProvider } = require("../services/nwc");
 const { getSyncStatus } = require("../worker/sync-worker");
 
 const router = express.Router();
@@ -24,6 +24,7 @@ router.get("/overview", requireAuth, requireAdmin, async (_req, res) => {
     const todayPaid = paid.filter((p) => new Date(p.settledAt || p.createdAt) >= startOfDay);
 
     const nwc = parseNwcUrl(process.env.NWC_URL || "");
+    const paymentProvider = await testPaymentProvider();
     const database = await db.healthCheck();
     const sync = getSyncStatus();
 
@@ -40,6 +41,9 @@ router.get("/overview", requireAuth, requireAdmin, async (_req, res) => {
       health: {
         nwc: nwc.valid,
         nwcError: nwc.valid ? null : nwc.error,
+        paymentProvider: paymentProvider.provider,
+        paymentProviderOk: paymentProvider.ok,
+        paymentProviderError: paymentProvider.error,
         database,
         sync,
       },

@@ -20,7 +20,9 @@ const invoiceBottom = document.getElementById("invoiceBottom");
 const merchantName = document.querySelector(".merchant-name");
 
 const officeSlugMatch = window.location.pathname.match(/^\/pay\/([^/]+)/i);
-const officeSlug = officeSlugMatch ? officeSlugMatch[1] : null;
+const officeSlug = officeSlugMatch
+  ? decodeURIComponent(officeSlugMatch[1]).trim().toLowerCase()
+  : null;
 let officeInfo = null;
 
 let amountStr = "0";
@@ -197,7 +199,7 @@ async function createInvoice() {
   const amountUsd = getAmountUsd();
 
   if (!officeSlug) {
-    showError("Invalid payment link");
+    showError("Invalid payment link — ask the office for the correct URL");
     return;
   }
 
@@ -243,8 +245,14 @@ async function createInvoice() {
       setTimeout(() => openCashApp(data.paymentRequest), 600);
     }
   } catch (err) {
+    const isLocal =
+      location.hostname === "localhost" || location.hostname === "127.0.0.1";
     if (err.message === "Failed to fetch" || err.message === "Server not running") {
-      showError("Server band hai — npm start chalao");
+      showError(
+        isLocal
+          ? "Server band hai — npm start chalao"
+          : "Payment system is temporarily unavailable. Please try again shortly."
+      );
     } else {
       showError(err.message);
     }
@@ -306,7 +314,7 @@ renderAmount();
 
 async function loadOffice() {
   if (!officeSlug) {
-    showError("Use your office payment link");
+    showError("Use your office payment link from the office (e.g. /pay/your-office)");
     payBtn.disabled = true;
     return;
   }
