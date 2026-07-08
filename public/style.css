@@ -327,10 +327,12 @@ body {
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 
-.qr-wrap img {
+.qr-wrap img,
+.qr-wrap canvas {
   display: block;
   width: 200px;
   height: 200px;
+  margin: 0 auto;
 }
 
 .status {

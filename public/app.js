@@ -10,7 +10,7 @@ const chips = document.querySelectorAll(".chip");
 const backBtn = document.getElementById("backBtn");
 const displayAmount = document.getElementById("displayAmount");
 const displaySats = document.getElementById("displaySats");
-const qrCode = document.getElementById("qrCode");
+const qrWrap = document.getElementById("qrWrap");
 const statusEl = document.getElementById("status");
 const invoiceText = document.getElementById("invoiceText");
 const cashAppBtn = document.getElementById("cashAppBtn");
@@ -18,8 +18,6 @@ const copyInvoiceBtn = document.getElementById("copyInvoiceBtn");
 const expiryTimer = document.getElementById("expiryTimer");
 const invoiceBottom = document.getElementById("invoiceBottom");
 const merchantName = document.querySelector(".merchant-name");
-const inAppNotice = document.getElementById("inAppNotice");
-const invoiceInAppNotice = document.getElementById("invoiceInAppNotice");
 const payHint = document.getElementById("payHint");
 
 const officeSlugMatch = window.location.pathname.match(/^\/pay\/([^/]+)/i);
@@ -39,86 +37,29 @@ function getBolt11(invoice) {
   return String(invoice || "").replace(/^lightning:/i, "").trim();
 }
 
-function getLightningUri(invoice) {
-  const bolt11 = getBolt11(invoice);
-  return bolt11 ? `lightning:${bolt11}` : "";
-}
-
-function getCashAppUniversalUrl(bolt11) {
-  return `https://cash.app/launch/lightning/${bolt11}`;
-}
-
-function isAndroid() {
-  return /Android/i.test(navigator.userAgent || "");
-}
-
-function isIOS() {
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
-}
-
-function getInAppPlatform() {
-  const ua = navigator.userAgent || "";
-  if (/Instagram/i.test(ua)) return "instagram";
-  if (/FBAN|FBAV|Messenger/i.test(ua)) return "facebook";
-  if (/WhatsApp/i.test(ua)) return "whatsapp";
-  if (/TikTok/i.test(ua)) return "tiktok";
-  if (/Twitter|X-Twitter/i.test(ua)) return "twitter";
-  if (/LinkedInApp/i.test(ua)) return "linkedin";
-  if (/Snapchat/i.test(ua)) return "snapchat";
-  if (/; wv\)|WebView/i.test(ua)) return "webview";
-  return null;
-}
-
-function isInAppBrowser() {
-  return Boolean(getInAppPlatform());
-}
-
-function getCashAppOpenUrl(bolt11) {
-  if (!bolt11) return "#";
-
-  const lightning = `lightning:${bolt11}`;
-  const universal = getCashAppUniversalUrl(bolt11);
-
-  if (isAndroid()) {
-    const fallback = encodeURIComponent(universal);
-    return `intent://cash.app/launch/lightning/${bolt11}#Intent;scheme=https;package=com.squareup.cash;S.browser_fallback_url=${fallback};end`;
-  }
-
-  const inApp = getInAppPlatform();
-  if (inApp === "instagram") {
-    return `instagram://extbrowser/?url=${encodeURIComponent(universal)}`;
-  }
-  if (inApp) {
-    // Messenger/Facebook/etc cannot open lightning: — escape to Safari with Cash App link
-    return `x-safari-https://cash.app/launch/lightning/${bolt11}`;
-  }
-
-  if (isIOS()) {
-    return lightning;
-  }
-
-  return lightning;
-}
-
-function getSafariEscapeUrl() {
-  const path = location.href.replace(/^https?:\/\//, "");
-  if (isAndroid()) {
-    return `intent://${path}#Intent;scheme=https;end`;
-  }
-  return `x-safari-https://${path}`;
-}
-
 function setCashAppLink(invoice) {
   const bolt11 = getBolt11(invoice);
   if (!cashAppBtn) return;
-  cashAppBtn.href = getCashAppOpenUrl(bolt11);
+  cashAppBtn.href = bolt11 ? `lightning:${bolt11}` : "#";
 }
 
-function setSafariEscapeLink() {
-  const openSafariBtn = document.getElementById("openSafariBtn");
-  if (!openSafariBtn || !isInAppBrowser()) return;
-  openSafariBtn.href = getSafariEscapeUrl();
-  openSafariBtn.classList.remove("hidden");
+function renderInvoiceQr(bolt11, fallbackDataUrl) {
+  if (!qrWrap) return;
+  if (typeof QRCode !== "undefined" && bolt11) {
+    qrWrap.innerHTML = "";
+    new QRCode(qrWrap, {
+      text: `lightning:${bolt11.toUpperCase()}`,
+      width: 200,
+      height: 200,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+    return;
+  }
+  if (fallbackDataUrl) {
+    qrWrap.innerHTML = `<img alt="Lightning QR code" src="${fallbackDataUrl}" />`;
+  }
 }
 
 function setCashAppEnabled(enabled) {
@@ -131,29 +72,12 @@ function setCashAppEnabled(enabled) {
   }
 }
 
-function showInAppBrowserHelp() {
-  const html = `
-    <strong>In-app browser detected</strong>
-    Tap <strong>Open in Safari</strong> first, then tap <strong>Open in Cash App</strong>.
-    Or scan the QR from Cash App → Bitcoin → Pay.
-  `;
-  if (inAppNotice) {
-    inAppNotice.innerHTML = html;
-    inAppNotice.classList.remove("hidden");
-  }
-  if (invoiceInAppNotice) {
-    invoiceInAppNotice.innerHTML = html;
-    invoiceInAppNotice.classList.remove("hidden");
-  }
-  setSafariEscapeLink();
-}
-
 function openInCashApp(e) {
   if (e) e.preventDefault();
   if (invoiceBottom.classList.contains("expired")) return false;
   const bolt11 = getBolt11(invoiceText.value);
   if (!bolt11) return false;
-  window.location.href = getCashAppOpenUrl(bolt11);
+  window.location.href = `lightning:${bolt11}`;
   return false;
 }
 
@@ -332,11 +256,10 @@ async function createInvoice() {
 
     displayAmount.textContent = `$${data.amountUsd.toFixed(2)}`;
     displaySats.textContent = `${data.amountSats.toLocaleString()} sats`;
-    qrCode.src = data.qrDataUrl;
     invoiceText.value = data.paymentRequest;
     activePaymentHash = data.paymentHash;
+    renderInvoiceQr(data.paymentRequest, data.qrDataUrl);
     setCashAppLink(data.paymentRequest);
-    setSafariEscapeLink();
 
     showInvoiceScreen();
 
@@ -398,7 +321,7 @@ plusBtn.addEventListener("click", () => adjustAmount(1));
 payBtn.addEventListener("click", createInvoice);
 backBtn.addEventListener("click", showPayScreen);
 
-cashAppBtn.addEventListener("click", openInCashApp);
+window.openInCashApp = openInCashApp;
 
 copyInvoiceBtn.addEventListener("click", async () => {
   if (!invoiceText.value) return;
@@ -441,10 +364,6 @@ async function loadOffice() {
 }
 
 loadOffice();
-
-if (isInAppBrowser()) {
-  showInAppBrowserHelp();
-}
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && activePaymentHash) {
