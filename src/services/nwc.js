@@ -71,6 +71,30 @@ function getAlbyToken() {
   return token;
 }
 
+function getAlbyTokenDiagnostics() {
+  const raw = normalizeToken(
+    process.env.ALBY_API_TOKEN || process.env.ALBY_TOKEN || ""
+  );
+  const token = getAlbyToken();
+  if (!raw) {
+    return { configured: false, valid: false, issue: "ALBY_API_TOKEN not set on server" };
+  }
+  if (raw.startsWith("nostr+walletconnect://")) {
+    return {
+      configured: true,
+      valid: false,
+      issue: "NWC string is in ALBY_API_TOKEN — use getalby.com/developer access token instead",
+    };
+  }
+  if (raw === "your_token_here" || raw.includes("paste_here")) {
+    return { configured: true, valid: false, issue: "Placeholder token — paste real access token" };
+  }
+  if (!token) {
+    return { configured: true, valid: false, issue: "Token empty or invalid after parsing" };
+  }
+  return { configured: true, valid: true, issue: null };
+}
+
 function getPaymentProvider() {
   if (getAlbyToken()) return "alby";
   if (getNwcUrl()) return "nwc";
@@ -286,4 +310,5 @@ module.exports = {
   createInvoicePayment,
   lookupInvoiceSettled,
   testPaymentProvider,
+  getAlbyTokenDiagnostics,
 };

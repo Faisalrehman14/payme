@@ -5,11 +5,11 @@ const { INVOICE_EXPIRY_SEC } = require("../config");
 const { officePublicView } = require("../services/views");
 const {
   parseNwcUrl,
-  getAlbyToken,
   requireCredentials,
   createInvoicePayment,
   lookupInvoiceSettled,
   testPaymentProvider,
+  getAlbyTokenDiagnostics,
 } = require("../services/nwc");
 const { normalizeOfficeSlug } = require("../utils/office-slug");
 const { syncPaymentRecord } = require("../services/payment-sync");
@@ -48,7 +48,7 @@ router.get("/offices/:slug", async (req, res) => {
 
 router.get("/health", async (_req, res) => {
   const nwc = parseNwcUrl(process.env.NWC_URL || "");
-  const token = getAlbyToken();
+  const tokenDiag = getAlbyTokenDiagnostics();
   const provider = await testPaymentProvider();
   const database = await db.healthCheck();
   const sync = getSyncStatus();
@@ -57,8 +57,9 @@ router.get("/health", async (_req, res) => {
     ok: provider.ok && database.ok,
     nwc: nwc.valid,
     nwcError: nwc.valid ? null : nwc.error,
-    token: Boolean(token),
-    tokenError: token && provider.provider === "alby" && !provider.ok ? provider.error : null,
+    token: tokenDiag.valid,
+    tokenConfigured: tokenDiag.configured,
+    tokenError: tokenDiag.issue,
     paymentProvider: provider.provider,
     paymentProviderOk: provider.ok,
     paymentProviderError: provider.ok ? null : provider.error,

@@ -13,7 +13,7 @@ const LOGIN_MAX_ATTEMPTS = 10;
 const SYNC_INTERVAL_MS = Number(process.env.SYNC_INTERVAL_MS) || 30_000;
 
 const NWC_URL = process.env.NWC_URL;
-const ALBY_TOKEN = (process.env.ALBY_API_TOKEN || "")
+const ALBY_TOKEN = (process.env.ALBY_API_TOKEN || process.env.ALBY_TOKEN || "")
   .trim()
   .replace(/^["']|["']$/g, "");
 
