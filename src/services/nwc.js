@@ -266,16 +266,13 @@ async function testPaymentProvider() {
 
   if (provider === "alby") {
     try {
-      const response = await fetch("https://api.getalby.com/balance", {
+      const response = await fetch("https://api.getalby.com/invoices?limit=1", {
         headers: { Authorization: `Bearer ${getAlbyToken()}` },
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        return {
-          ok: false,
-          provider: "alby",
-          error: data.error || data.message || "Invalid Alby access token",
-        };
+        const message = data.error || data.message || "Invalid Alby access token";
+        return { ok: false, provider: "alby", error: message };
       }
       return { ok: true, provider: "alby", error: null };
     } catch (err) {
