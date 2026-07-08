@@ -18,6 +18,9 @@ const copyInvoiceBtn = document.getElementById("copyInvoiceBtn");
 const expiryTimer = document.getElementById("expiryTimer");
 const invoiceBottom = document.getElementById("invoiceBottom");
 const merchantName = document.querySelector(".merchant-name");
+const inAppNotice = document.getElementById("inAppNotice");
+const invoiceInAppNotice = document.getElementById("invoiceInAppNotice");
+const payHint = document.getElementById("payHint");
 
 const officeSlugMatch = window.location.pathname.match(/^\/pay\/([^/]+)/i);
 const officeSlug = officeSlugMatch
@@ -42,10 +45,57 @@ function getCashAppLaunchUrl(invoice) {
   return `https://cash.app/launch/lightning/${bolt11}`;
 }
 
+function isInAppBrowser() {
+  const ua = navigator.userAgent || "";
+  return /FBAN|FBAV|Instagram|Line\/|Twitter|WhatsApp|Snapchat|TikTok|Messenger|LinkedInApp|GSA\/|; wv\)|WebView/i.test(
+    ua
+  );
+}
+
+function inAppBrowserInstructionsHtml() {
+  return `
+    <strong>Open in your phone browser first</strong>
+    <ol>
+      <li>Tap <strong>⋯</strong> or <strong>⋮</strong> at the top</li>
+      <li>Choose <strong>Open in Safari</strong> or <strong>Open in Chrome</strong></li>
+      <li>Then tap <strong>Open in Cash App</strong></li>
+    </ol>
+    <div style="margin-top:8px"><strong>Or scan QR:</strong> Cash App → Bitcoin → Pay → scan the QR code</div>
+  `;
+}
+
+function showInAppBrowserHelp() {
+  const html = inAppBrowserInstructionsHtml();
+  if (inAppNotice) {
+    inAppNotice.innerHTML = html;
+    inAppNotice.classList.remove("hidden");
+  }
+  if (invoiceInAppNotice) {
+    invoiceInAppNotice.innerHTML = html;
+    invoiceInAppNotice.classList.remove("hidden");
+  }
+  if (payHint) {
+    payHint.textContent = "Messenger/Instagram browser cannot open Cash App — use Safari or scan QR";
+  }
+}
+
 function openInCashApp(invoice) {
+  const bolt11 = getBolt11(invoice);
+  if (!bolt11) return;
+
+  if (isInAppBrowser()) {
+    showInAppBrowserHelp();
+    return;
+  }
+
   const url = getCashAppLaunchUrl(invoice);
-  if (!url) return;
-  window.location.assign(url);
+  const link = document.createElement("a");
+  link.href = url;
+  link.rel = "noopener noreferrer";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function isMobile() {
@@ -244,10 +294,6 @@ async function createInvoice() {
 
     stopPolling();
     pollTimer = setInterval(() => checkStatus(data.paymentHash), 3000);
-
-    if (isMobile()) {
-      setTimeout(() => openCashApp(data.paymentRequest), 600);
-    }
   } catch (err) {
     const isLocal =
       location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -346,6 +392,10 @@ async function loadOffice() {
 }
 
 loadOffice();
+
+if (isInAppBrowser()) {
+  showInAppBrowserHelp();
+}
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && activePaymentHash) {

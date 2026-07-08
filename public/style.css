@@ -428,6 +428,32 @@ body {
   text-align: center;
 }
 
+.inapp-notice {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.inapp-notice strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #7c2d12;
+}
+
+.inapp-notice ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.inapp-notice li + li {
+  margin-top: 4px;
+}
+
 /* Full screen on small phones */
 @media (max-width: 420px) {
   .page {
