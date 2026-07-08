@@ -29,21 +29,23 @@ let amountStr = "0";
 let pollTimer = null;
 let expiryTimerId = null;
 let expiresAt = 0;
+let activePaymentHash = null;
 const INVOICE_EXPIRY_SEC = 600;
 
-function getLightningUrl(invoice) {
-  const bolt11 = invoice.replace(/^lightning:/i, "");
-  return `lightning:${bolt11}`;
+function getBolt11(invoice) {
+  return String(invoice || "").replace(/^lightning:/i, "").trim();
+}
+
+function getCashAppLaunchUrl(invoice) {
+  const bolt11 = getBolt11(invoice);
+  if (!bolt11) return "";
+  return `https://cash.app/launch/lightning/${bolt11}`;
 }
 
 function openInCashApp(invoice) {
-  const uri = getLightningUrl(invoice);
-  const link = document.createElement("a");
-  link.href = uri;
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const url = getCashAppLaunchUrl(invoice);
+  if (!url) return;
+  window.location.assign(url);
 }
 
 function isMobile() {
@@ -182,6 +184,7 @@ function showInvoiceScreen() {
 function showPayScreen() {
   stopPolling();
   stopExpiryTimer();
+  activePaymentHash = null;
   invoiceBottom.classList.remove("expired");
   cashAppBtn.disabled = false;
   invoiceScreen.classList.add("hidden");
@@ -230,6 +233,7 @@ async function createInvoice() {
     displaySats.textContent = `${data.amountSats.toLocaleString()} sats`;
     qrCode.src = data.qrDataUrl;
     invoiceText.value = data.paymentRequest;
+    activePaymentHash = data.paymentHash;
 
     showInvoiceScreen();
 
@@ -342,3 +346,9 @@ async function loadOffice() {
 }
 
 loadOffice();
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && activePaymentHash) {
+    checkStatus(activePaymentHash);
+  }
+});
