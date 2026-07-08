@@ -39,10 +39,25 @@ function getBolt11(invoice) {
   return String(invoice || "").replace(/^lightning:/i, "").trim();
 }
 
-function getCashAppLaunchUrl(invoice) {
+function getLightningUri(invoice) {
   const bolt11 = getBolt11(invoice);
-  if (!bolt11) return "";
-  return `https://cash.app/launch/lightning/${bolt11}`;
+  return bolt11 ? `lightning:${bolt11}` : "";
+}
+
+function setCashAppLink(invoice) {
+  if (!cashAppBtn) return;
+  const uri = getLightningUri(invoice);
+  cashAppBtn.href = uri || "#";
+}
+
+function setCashAppEnabled(enabled) {
+  if (!cashAppBtn) return;
+  cashAppBtn.classList.toggle("disabled", !enabled);
+  if (enabled) {
+    cashAppBtn.removeAttribute("aria-disabled");
+  } else {
+    cashAppBtn.setAttribute("aria-disabled", "true");
+  }
 }
 
 function isInAppBrowser() {
@@ -52,20 +67,11 @@ function isInAppBrowser() {
   );
 }
 
-function inAppBrowserInstructionsHtml() {
-  return `
-    <strong>Open in your phone browser first</strong>
-    <ol>
-      <li>Tap <strong>⋯</strong> or <strong>⋮</strong> at the top</li>
-      <li>Choose <strong>Open in Safari</strong> or <strong>Open in Chrome</strong></li>
-      <li>Then tap <strong>Open in Cash App</strong></li>
-    </ol>
-    <div style="margin-top:8px"><strong>Or scan QR:</strong> Cash App → Bitcoin → Pay → scan the QR code</div>
-  `;
-}
-
 function showInAppBrowserHelp() {
-  const html = inAppBrowserInstructionsHtml();
+  const html = `
+    <strong>Tip:</strong> Tap <strong>Open in Cash App</strong> below.
+    If it does not open, use Cash App → Bitcoin → Pay → scan the QR code.
+  `;
   if (inAppNotice) {
     inAppNotice.innerHTML = html;
     inAppNotice.classList.remove("hidden");
@@ -74,28 +80,14 @@ function showInAppBrowserHelp() {
     invoiceInAppNotice.innerHTML = html;
     invoiceInAppNotice.classList.remove("hidden");
   }
-  if (payHint) {
-    payHint.textContent = "Messenger/Instagram browser cannot open Cash App — use Safari or scan QR";
-  }
 }
 
-function openInCashApp(invoice) {
-  const bolt11 = getBolt11(invoice);
+function openInCashApp(e) {
+  if (e) e.preventDefault();
+  if (invoiceBottom.classList.contains("expired")) return;
+  const bolt11 = getBolt11(invoiceText.value);
   if (!bolt11) return;
-
-  if (isInAppBrowser()) {
-    showInAppBrowserHelp();
-    return;
-  }
-
-  const url = getCashAppLaunchUrl(invoice);
-  const link = document.createElement("a");
-  link.href = url;
-  link.rel = "noopener noreferrer";
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  window.location.href = `lightning:${bolt11}`;
 }
 
 function isMobile() {
@@ -149,7 +141,7 @@ function markInvoiceExpired() {
   invoiceBottom.classList.add("expired");
   statusEl.className = "status expired";
   statusEl.innerHTML = "Invoice expired — go back and try again";
-  cashAppBtn.disabled = true;
+  setCashAppEnabled(false);
 }
 
 function startExpiryTimer(expiresAtMs) {
@@ -160,7 +152,7 @@ function startExpiryTimer(expiresAtMs) {
   expiresAt = expiresAtMs;
   expiryTimer.className = "expiry-timer";
   invoiceBottom.classList.remove("expired");
-  cashAppBtn.disabled = false;
+  setCashAppEnabled(true);
 
   const tick = () => {
     const left = expiresAt - Date.now();
@@ -236,15 +228,11 @@ function showPayScreen() {
   stopExpiryTimer();
   activePaymentHash = null;
   invoiceBottom.classList.remove("expired");
-  cashAppBtn.disabled = false;
+  setCashAppEnabled(true);
   invoiceScreen.classList.add("hidden");
   payScreen.classList.remove("hidden");
   statusEl.className = "status waiting";
   statusEl.innerHTML = '<span class="dot"></span> Waiting for payment...';
-}
-
-function openCashApp(invoice) {
-  openInCashApp(invoice);
 }
 
 async function createInvoice() {
@@ -284,6 +272,7 @@ async function createInvoice() {
     qrCode.src = data.qrDataUrl;
     invoiceText.value = data.paymentRequest;
     activePaymentHash = data.paymentHash;
+    setCashAppLink(data.paymentRequest);
 
     showInvoiceScreen();
 
@@ -324,7 +313,7 @@ async function checkStatus(hash) {
       expiryTimer.className = "expiry-timer";
       statusEl.className = "status paid";
       statusEl.innerHTML = "✓ Payment received!";
-      cashAppBtn.disabled = true;
+      setCashAppEnabled(false);
     }
   } catch {
     // keep polling
@@ -345,10 +334,12 @@ plusBtn.addEventListener("click", () => adjustAmount(1));
 payBtn.addEventListener("click", createInvoice);
 backBtn.addEventListener("click", showPayScreen);
 
-cashAppBtn.addEventListener("click", () => {
-  if (invoiceText.value && !invoiceBottom.classList.contains("expired")) {
-    openInCashApp(invoiceText.value);
+cashAppBtn.addEventListener("click", (e) => {
+  if (!invoiceText.value || invoiceBottom.classList.contains("expired")) {
+    e.preventDefault();
+    return;
   }
+  openInCashApp(e);
 });
 
 copyInvoiceBtn.addEventListener("click", async () => {

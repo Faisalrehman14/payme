@@ -386,6 +386,13 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.btn-cashapp.disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .cash-icon {

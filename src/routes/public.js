@@ -135,7 +135,8 @@ router.post("/invoice", async (req, res) => {
       });
     }
 
-    const qrDataUrl = await QRCode.toDataURL(paymentRequest, {
+    const qrPayload = `lightning:${paymentRequest.toUpperCase()}`;
+    const qrDataUrl = await QRCode.toDataURL(qrPayload, {
       width: 280,
       margin: 2,
       color: { dark: "#000000", light: "#ffffff" },
