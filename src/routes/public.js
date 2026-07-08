@@ -63,6 +63,8 @@ router.get("/health", async (_req, res) => {
     paymentProvider: provider.provider,
     paymentProviderOk: provider.ok,
     paymentProviderError: provider.ok ? null : provider.error,
+    lightningAddress: provider.lightningAddress || null,
+    warning: provider.warning || null,
     database,
     sync,
   });

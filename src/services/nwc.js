@@ -1,7 +1,9 @@
 const { NWCClient } = require("@getalby/sdk/nwc");
-const { NWC_URL, ALBY_TOKEN } = require("../config");
+const { decodeInvoice } = require("@getalby/lightning-tools");
+const { NWC_URL, ALBY_TOKEN, ALBY_LIGHTNING_ADDRESS } = require("../config");
 
 const NWC_TIMEOUT_MS = 20000;
+let cachedLightningAddress = ALBY_LIGHTNING_ADDRESS || null;
 
 function normalizeToken(value) {
   if (!value) return "";
@@ -102,14 +104,20 @@ function getPaymentProvider() {
 }
 
 function hasCredentials() {
-  return Boolean(getPaymentProvider());
+  return Boolean(
+    getPaymentProvider() ||
+      isValidLightningAddress(ALBY_LIGHTNING_ADDRESS) ||
+      isValidLightningAddress(cachedLightningAddress)
+  );
 }
 
 function requireCredentials(res) {
   if (!hasCredentials()) {
     const parsed = parseNwcUrl(NWC_URL || "");
     const token = normalizeToken(ALBY_TOKEN || "");
-    let error = parsed.error || "Add ALBY_API_TOKEN or NWC_URL in Railway Variables.";
+    let error =
+      parsed.error ||
+      "Add ALBY_LIGHTNING_ADDRESS (you@getalby.com) or ALBY_API_TOKEN in Railway Variables.";
 
     if (token.startsWith("nostr+walletconnect://")) {
       error =
@@ -163,27 +171,122 @@ async function albyFetch(endpoint, options = {}) {
   return data;
 }
 
-async function createInvoicePayment({ sats, description, expirySec }) {
-  const provider = getPaymentProvider();
-  if (!provider) {
-    throw new Error("Payment provider not configured");
+function isValidLightningAddress(value) {
+  return Boolean(value && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value));
+}
+
+async function resolveLightningAddress() {
+  if (isValidLightningAddress(cachedLightningAddress)) {
+    return cachedLightningAddress;
   }
 
-  if (provider === "alby") {
-    const invoice = await albyFetch("/invoices", {
-      method: "POST",
-      body: JSON.stringify({ amount: sats, memo: description }),
-    });
-    if (!invoice.payment_request || !invoice.payment_hash) {
-      throw new Error("Could not create Lightning invoice");
+  if (ALBY_LIGHTNING_ADDRESS && isValidLightningAddress(ALBY_LIGHTNING_ADDRESS)) {
+    cachedLightningAddress = ALBY_LIGHTNING_ADDRESS;
+    return cachedLightningAddress;
+  }
+
+  if (!getAlbyToken()) return null;
+
+  try {
+    const me = await albyFetch("/user/me");
+    const address = (me.lightning_address || "").trim().toLowerCase();
+    if (isValidLightningAddress(address)) {
+      cachedLightningAddress = address;
+      return cachedLightningAddress;
     }
-    return {
-      paymentRequest: invoice.payment_request,
-      paymentHash: invoice.payment_hash,
-      provider: "alby",
-    };
+  } catch {
+    // account:read may not be on the token — continue without LN address
   }
 
+  return null;
+}
+
+/**
+ * Create invoice via LNURL / Lightning Address — same path Cash App wallets expect.
+ * Matches btc-cash.store: /.well-known/lnurlp/{user} → callback?amount=msats
+ */
+async function createInvoiceViaLnurl({ sats, description }) {
+  const address = await resolveLightningAddress();
+  if (!address) {
+    throw new Error("Lightning address not configured");
+  }
+
+  const [user, domain] = address.split("@");
+  const msats = Math.max(1, Math.round(Number(sats) * 1000));
+
+  const lnurlpRes = await fetch(`https://${domain}/.well-known/lnurlp/${encodeURIComponent(user)}`);
+  const lnurlp = await lnurlpRes.json().catch(() => ({}));
+  if (!lnurlpRes.ok || !lnurlp.callback) {
+    throw new Error(lnurlp.reason || lnurlp.status || "Could not load Lightning Address");
+  }
+
+  if (typeof lnurlp.minSendable === "number" && msats < lnurlp.minSendable) {
+    throw new Error("Amount too small for this Lightning Address");
+  }
+  if (typeof lnurlp.maxSendable === "number" && msats > lnurlp.maxSendable) {
+    throw new Error("Amount too large for this Lightning Address");
+  }
+
+  const callbackUrl = new URL(lnurlp.callback);
+  callbackUrl.searchParams.set("amount", String(msats));
+  if (description && Number(lnurlp.commentAllowed) > 0) {
+    callbackUrl.searchParams.set(
+      "comment",
+      String(description).slice(0, Number(lnurlp.commentAllowed))
+    );
+  }
+
+  const invoiceRes = await fetch(callbackUrl.toString());
+  const invoiceData = await invoiceRes.json().catch(() => ({}));
+  if (!invoiceRes.ok || !invoiceData.pr) {
+    throw new Error(
+      invoiceData.reason || invoiceData.status || "Could not create Lightning invoice via LNURL"
+    );
+  }
+
+  const paymentRequest = invoiceData.pr;
+  let paymentHash =
+    invoiceData.payment_hash ||
+    invoiceData.paymentHash ||
+    null;
+
+  if (!paymentHash) {
+    try {
+      const decoded = decodeInvoice(paymentRequest);
+      paymentHash = decoded?.paymentHash || null;
+    } catch {
+      paymentHash = null;
+    }
+  }
+
+  if (!paymentHash) {
+    throw new Error("Could not read payment hash from Lightning invoice");
+  }
+
+  return {
+    paymentRequest,
+    paymentHash,
+    provider: "lnurl",
+    lightningAddress: address,
+  };
+}
+
+async function createInvoiceViaAlbyApi({ sats, description }) {
+  const invoice = await albyFetch("/invoices", {
+    method: "POST",
+    body: JSON.stringify({ amount: sats, memo: description }),
+  });
+  if (!invoice.payment_request || !invoice.payment_hash) {
+    throw new Error("Could not create Lightning invoice");
+  }
+  return {
+    paymentRequest: invoice.payment_request,
+    paymentHash: invoice.payment_hash,
+    provider: "alby",
+  };
+}
+
+async function createInvoiceViaNwc({ sats, description, expirySec }) {
   const client = createNwcClient();
   try {
     const result = await withTimeout(
@@ -204,6 +307,32 @@ async function createInvoicePayment({ sats, description, expirySec }) {
   } finally {
     client.close();
   }
+}
+
+async function createInvoicePayment({ sats, description, expirySec }) {
+  // Prefer LNURL (Lightning Address) — Cash App can route these reliably,
+  // same approach as btc-cash.store.
+  const address = await resolveLightningAddress();
+  if (address) {
+    try {
+      return await createInvoiceViaLnurl({ sats, description });
+    } catch (err) {
+      console.warn("LNURL invoice failed, falling back:", err.message);
+    }
+  }
+
+  const provider = getPaymentProvider();
+  if (!provider) {
+    throw new Error(
+      "Payment provider not configured. Set ALBY_LIGHTNING_ADDRESS (you@getalby.com) or ALBY_API_TOKEN."
+    );
+  }
+
+  if (provider === "alby") {
+    return createInvoiceViaAlbyApi({ sats, description });
+  }
+
+  return createInvoiceViaNwc({ sats, description, expirySec });
 }
 
 async function lookupViaAlby(paymentHash) {
@@ -237,9 +366,18 @@ async function lookupViaNwc(paymentHash) {
 }
 
 async function lookupInvoiceSettled(paymentHash, providerHint) {
+  // LNURL invoices still settle on Alby — check Alby API first when token exists
+  if (providerHint === "lnurl" && getAlbyToken()) {
+    try {
+      return await lookupViaAlby(paymentHash);
+    } catch (err) {
+      if (!getNwcUrl()) throw err;
+    }
+  }
+
   const preferred = providerHint || getPaymentProvider();
 
-  if (preferred === "alby" && getAlbyToken()) {
+  if ((preferred === "alby" || preferred === "lnurl") && getAlbyToken()) {
     try {
       return await lookupViaAlby(paymentHash);
     } catch (err) {
@@ -259,9 +397,46 @@ async function lookupInvoiceSettled(paymentHash, providerHint) {
 }
 
 async function testPaymentProvider() {
+  const address = await resolveLightningAddress();
+  if (address) {
+    try {
+      const [user, domain] = address.split("@");
+      const res = await fetch(
+        `https://${domain}/.well-known/lnurlp/${encodeURIComponent(user)}`
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.callback) {
+        return {
+          ok: true,
+          provider: "lnurl",
+          lightningAddress: address,
+          error: null,
+        };
+      }
+      return {
+        ok: false,
+        provider: "lnurl",
+        lightningAddress: address,
+        error: data.reason || "Lightning Address LNURL lookup failed",
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        provider: "lnurl",
+        lightningAddress: address,
+        error: err.message,
+      };
+    }
+  }
+
   const provider = getPaymentProvider();
   if (!provider) {
-    return { ok: false, provider: null, error: "No payment credentials configured" };
+    return {
+      ok: false,
+      provider: null,
+      error:
+        "Set ALBY_LIGHTNING_ADDRESS (you@getalby.com) or ALBY_API_TOKEN for Cash App payments",
+    };
   }
 
   if (provider === "alby") {
@@ -274,7 +449,14 @@ async function testPaymentProvider() {
         const message = data.error || data.message || "Invalid Alby access token";
         return { ok: false, provider: "alby", error: message };
       }
-      return { ok: true, provider: "alby", error: null };
+      return {
+        ok: true,
+        provider: "alby",
+        lightningAddress: null,
+        error: null,
+        warning:
+          "Using Alby API invoices — set ALBY_LIGHTNING_ADDRESS for better Cash App compatibility",
+      };
     } catch (err) {
       return { ok: false, provider: "alby", error: err.message };
     }
@@ -287,7 +469,7 @@ async function testPaymentProvider() {
       NWC_TIMEOUT_MS,
       "Alby Hub / NWC wallet not reachable"
     );
-    return { ok: true, provider: "nwc", error: null };
+    return { ok: true, provider: "nwc", lightningAddress: null, error: null };
   } catch (err) {
     return { ok: false, provider: "nwc", error: err.message };
   } finally {
@@ -308,4 +490,5 @@ module.exports = {
   lookupInvoiceSettled,
   testPaymentProvider,
   getAlbyTokenDiagnostics,
+  resolveLightningAddress,
 };

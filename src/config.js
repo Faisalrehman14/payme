@@ -17,6 +17,15 @@ const ALBY_TOKEN = (process.env.ALBY_API_TOKEN || process.env.ALBY_TOKEN || "")
   .trim()
   .replace(/^["']|["']$/g, "");
 
+// Lightning Address used for Cash App-compatible LNURL invoices (e.g. you@getalby.com)
+const ALBY_LIGHTNING_ADDRESS = (
+  process.env.ALBY_LIGHTNING_ADDRESS ||
+  process.env.LIGHTNING_ADDRESS ||
+  ""
+)
+  .trim()
+  .toLowerCase();
+
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "")
   .trim()
   .replace(/\/$/, "");
@@ -33,6 +42,7 @@ module.exports = {
   SYNC_INTERVAL_MS,
   NWC_URL,
   ALBY_TOKEN,
+  ALBY_LIGHTNING_ADDRESS,
   PUBLIC_BASE_URL,
   PUBLIC_DIR,
 };
