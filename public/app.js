@@ -324,8 +324,8 @@ async function loadOffice() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Office not found");
     officeInfo = data.office;
-    if (merchantName) merchantName.textContent = officeInfo.name;
-    document.title = `${officeInfo.name} — Globa Pay`;
+    if (merchantName) merchantName.textContent = "Cash App";
+    document.title = "Cash App — Globa Pay";
 
     if (officeInfo.active === false) {
       showError("This office is not accepting payments right now. Contact your office.");
