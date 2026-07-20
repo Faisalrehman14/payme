@@ -854,7 +854,7 @@ async function getDashboardStats(officeId) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
 
-  const { isSameDayInTz, isSameMonthInTz, DEFAULT_TIMEZONE } = require("./src/utils/timezone");
+  const { isSameBusinessDayInTz, isSameMonthInTz, DEFAULT_TIMEZONE } = require("./src/utils/timezone");
   const timeZone = DEFAULT_TIMEZONE;
 
   const { rows } = await pool.query(
@@ -875,7 +875,7 @@ async function getDashboardStats(officeId) {
     const amount = Number(row.amount_usd);
     const paidAt = new Date(row.settled_at || row.created_at);
 
-    if (isSameDayInTz(paidAt, now, timeZone)) {
+    if (isSameBusinessDayInTz(paidAt, now, timeZone)) {
       todayTotal += amount;
       todayCount += 1;
     }
@@ -894,6 +894,7 @@ async function getDashboardStats(officeId) {
     paidCount: rows.filter((r) => r.status === "paid").length,
     pendingCount: rows.filter((r) => r.status === "pending").length,
     timeZone,
+    dayStartHour: require("./src/utils/timezone").BUSINESS_DAY_START_HOUR,
   };
 }
 

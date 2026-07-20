@@ -530,7 +530,7 @@ async function getDashboardStats(officeId) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
   const payments = await listPaymentsForOffice(officeId, 5000);
-  const { isSameDayInTz, isSameMonthInTz, DEFAULT_TIMEZONE } = require("./src/utils/timezone");
+  const { isSameBusinessDayInTz, isSameMonthInTz, DEFAULT_TIMEZONE } = require("./src/utils/timezone");
   const timeZone = DEFAULT_TIMEZONE;
   const now = new Date();
 
@@ -544,7 +544,7 @@ async function getDashboardStats(officeId) {
     const amount = p.amountUsd || 0;
     const paidAt = new Date(p.settledAt || p.createdAt);
 
-    if (isSameDayInTz(paidAt, now, timeZone)) {
+    if (isSameBusinessDayInTz(paidAt, now, timeZone)) {
       todayTotal += amount;
       todayCount += 1;
     }
@@ -563,6 +563,7 @@ async function getDashboardStats(officeId) {
     paidCount: payments.filter((p) => p.status === "paid").length,
     pendingCount: payments.filter((p) => p.status === "pending").length,
     timeZone,
+    dayStartHour: require("./src/utils/timezone").BUSINESS_DAY_START_HOUR,
   };
 }
 

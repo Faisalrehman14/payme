@@ -448,6 +448,13 @@ body {
   box-shadow: none;
 }
 
+.avatar-logo {
+  display: block;
+  object-fit: cover;
+  background: transparent;
+  padding: 0;
+}
+
 .user-meta {
   min-width: 0;
 }

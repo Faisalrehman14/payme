@@ -1,7 +1,9 @@
 const assert = require("assert");
 const {
   dateKeyInTz,
+  businessDateKeyInTz,
   isSameDayInTz,
+  isSameBusinessDayInTz,
   isSameMonthInTz,
   monthYearInTz,
 } = require("../src/utils/timezone");
@@ -18,6 +20,15 @@ assert.ok(isSameDayInTz(earlyKarachiMorning, lateUtcOnJul20, "Asia/Karachi"));
 const previousPktAfternoon = new Date("2026-07-20T10:00:00.000Z"); // Jul 20 15:00 PKT
 assert.ok(!isSameDayInTz(previousPktAfternoon, lateUtcOnJul20, "Asia/Karachi"));
 assert.ok(isSameDayInTz(previousPktAfternoon, lateUtcOnJul20, "UTC"));
+
+// Business day rolls at 04:00 — 1:11 AM still belongs to Jul 20
+assert.strictEqual(businessDateKeyInTz(lateUtcOnJul20, "Asia/Karachi", 4), "2026-07-20");
+assert.ok(isSameBusinessDayInTz(previousPktAfternoon, lateUtcOnJul20, "Asia/Karachi", 4));
+
+// After 04:00, calendar day matches business day
+const afterFourAm = new Date("2026-07-20T23:30:00.000Z"); // Jul 21 04:30 PKT
+assert.strictEqual(businessDateKeyInTz(afterFourAm, "Asia/Karachi", 4), "2026-07-21");
+assert.ok(!isSameBusinessDayInTz(previousPktAfternoon, afterFourAm, "Asia/Karachi", 4));
 
 const { month, year } = monthYearInTz(lateUtcOnJul20, "Asia/Karachi");
 assert.strictEqual(month, 7);
