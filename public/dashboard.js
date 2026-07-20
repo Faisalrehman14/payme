@@ -977,21 +977,31 @@ function renderHomeOverview() {
   const sPct = (succeededAmt / totalAmt) * 100;
   const pPct = (pendingAmt / totalAmt) * 100;
   const ePct = (expiredAmt / totalAmt) * 100;
-  const minSeg = (pct) => (pct > 0 && pct < 2 ? 2 : pct);
 
   const bar = document.getElementById("homePaymentsBar");
   if (bar) {
+    const seg = (cls, pct, amt, label) =>
+      `<span class="seg ${cls}${pct <= 0 ? " is-empty" : ""}" style="flex:${pct > 0 ? Math.max(pct, 2.5) : 0} 1 0" title="${label} ${money(amt)}"></span>`;
     bar.innerHTML = `
-      <span class="seg succeeded" style="flex:${minSeg(sPct)}" title="Succeeded ${money(succeededAmt)}"></span>
-      <span class="seg pending" style="flex:${minSeg(pPct)}" title="Pending ${money(pendingAmt)}"></span>
-      <span class="seg expired" style="flex:${minSeg(ePct)}" title="Expired ${money(expiredAmt)}"></span>`;
+      ${seg("succeeded", sPct, succeededAmt, "Succeeded")}
+      ${seg("pending", pPct, pendingAmt, "Pending")}
+      ${seg("expired", ePct, expiredAmt, "Expired")}`;
   }
   const legend = document.getElementById("homePaymentsLegend");
   if (legend) {
     legend.innerHTML = `
-      <div><i class="dot succeeded"></i><span>Succeeded</span><em>${sPct.toFixed(0)}%</em><strong>${money(succeededAmt)}</strong></div>
-      <div><i class="dot pending"></i><span>Pending</span><em>${pPct.toFixed(0)}%</em><strong>${money(pendingAmt)}</strong></div>
-      <div><i class="dot expired"></i><span>Expired</span><em>${ePct.toFixed(0)}%</em><strong>${money(expiredAmt)}</strong></div>`;
+      <div>
+        <div class="legend-left"><i class="dot succeeded"></i><span>Succeeded</span></div>
+        <strong>${money(succeededAmt)}</strong>
+      </div>
+      <div>
+        <div class="legend-left"><i class="dot pending"></i><span>Pending</span></div>
+        <strong>${money(pendingAmt)}</strong>
+      </div>
+      <div>
+        <div class="legend-left"><i class="dot expired"></i><span>Expired</span></div>
+        <strong>${money(expiredAmt)}</strong>
+      </div>`;
   }
 
   setText("pendingCountPill", `${pending.length} pending`);
