@@ -395,6 +395,13 @@ body {
   color: #e2e8f0;
 }
 
+.sidebar-support {
+  margin: 10px 2px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
 /* ── Main content ── */
 .main {
   padding: 0;

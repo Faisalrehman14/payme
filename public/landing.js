@@ -5,6 +5,20 @@ async function loadLandingSettings() {
   const emailText = document.getElementById("contactEmailText");
   const footerLink = document.getElementById("footerEmailLink");
   const copyBtn = document.getElementById("copyEmailBtn");
+  const yearEl = document.getElementById("footerYear");
+
+  if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
+  const bindCopy = (email) => {
+    if (!copyBtn) return;
+    copyBtn.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(email);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => {
+        copyBtn.textContent = "Copy Email";
+      }, 2000);
+    });
+  };
 
   try {
     const res = await fetch("/api/settings/landing");
@@ -23,30 +37,24 @@ async function loadLandingSettings() {
       if (emailText) emailText.textContent = data.contactEmail;
       if (footerLink) {
         footerLink.href = mailto;
-        footerLink.textContent = data.contactEmail;
+        footerLink.textContent = "Contact";
       }
-      if (copyBtn) {
-        copyBtn.addEventListener("click", async () => {
-          await navigator.clipboard.writeText(data.contactEmail);
-          copyBtn.textContent = "Copied!";
-          setTimeout(() => {
-            copyBtn.textContent = "Copy Email";
-          }, 2000);
-        });
-      }
+      bindCopy(data.contactEmail);
     }
   } catch {
-    if (copyBtn) {
-      const fallback = emailText?.textContent || "payments@globapay.com";
-      copyBtn.addEventListener("click", async () => {
-        await navigator.clipboard.writeText(fallback);
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => {
-          copyBtn.textContent = "Copy Email";
-        }, 2000);
-      });
-    }
+    bindCopy(emailText?.textContent || "payments@globapay.com");
   }
 }
+
+document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+  anchor.addEventListener("click", (e) => {
+    const id = anchor.getAttribute("href");
+    if (!id || id === "#") return;
+    const target = document.querySelector(id);
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
 
 loadLandingSettings();

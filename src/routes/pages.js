@@ -24,4 +24,12 @@ router.get("/dashboard", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "dashboard.html"));
 });
 
+router.get("/privacy", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "privacy.html"));
+});
+
+router.get("/terms", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "terms.html"));
+});
+
 module.exports = router;

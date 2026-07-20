@@ -7,9 +7,12 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Globa Pay</title>
+  <title>Pay securely — Globa Pay</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -23,11 +26,15 @@
           <div class="top-bar">
             <div class="merchant">
               <div class="merchant-mark">G</div>
-              <span class="merchant-name">Cash App</span>
+              <div class="merchant-copy">
+                <span class="merchant-name">Cash App</span>
+                <span class="merchant-sub">Checkout · Globa Pay</span>
+              </div>
             </div>
-            <div class="secure-badge">🔒 Secure</div>
+            <div class="secure-badge">Secure</div>
           </div>
 
+          <p class="amount-label">Enter amount</p>
           <div class="amount-row">
             <button class="amount-btn" id="minusBtn" type="button" aria-label="Decrease">−</button>
             <div class="amount-display" id="amountDisplay">$0</div>
@@ -59,8 +66,12 @@
           </div>
 
           <p class="error" id="error"></p>
-          <button class="btn-pay" id="payBtn" type="button">PAY</button>
+          <button class="btn-pay" id="payBtn" type="button">Continue to Cash App</button>
 
+          <div class="trust-row">
+            <span>Encrypted checkout</span>
+            <span>Live settlement</span>
+          </div>
           <p class="footer-note">
             <span class="footer-icon">G</span>
             Secured by Globa Pay
@@ -90,15 +101,19 @@
             Open in Cash App
           </a>
           <button class="btn-copy-invoice" id="copyInvoiceBtn" type="button">Copy Invoice</button>
-          <p class="pay-hint" id="payHint">Scan with Cash App or tap below</p>
+          <p class="pay-hint" id="payHint">Scan with Cash App or tap Open in Cash App</p>
 
           <textarea id="invoiceText" class="hidden" readonly></textarea>
+          <p class="footer-note invoice-foot">
+            <span class="footer-icon">G</span>
+            Payment protected by Globa Pay
+          </p>
         </div>
       </div>
 
     </div>
   </div>
 
-  <script src="/app.js?v=2"></script>
+  <script src="/app.js?v=3"></script>
 </body>
 </html>
