@@ -124,8 +124,22 @@ function initialsFromName(username) {
 }
 
 function statusBadge(status) {
-  const label = status === "paid" ? "completed" : status;
-  return `<span class="badge ${status === "paid" ? "paid" : status}">${label}</span>`;
+  const key = status === "paid" ? "paid" : status;
+  const label =
+    status === "paid"
+      ? "Succeeded"
+      : status === "pending"
+        ? "Pending"
+        : status === "expired"
+          ? "Expired"
+          : status;
+  const icon =
+    status === "paid"
+      ? '<span class="badge-ico" aria-hidden="true">✓</span>'
+      : status === "pending"
+        ? '<span class="badge-ico" aria-hidden="true">•</span>'
+        : '<span class="badge-ico" aria-hidden="true">×</span>';
+  return `<span class="badge ${key}">${icon}${label}</span>`;
 }
 
 function greeting() {
@@ -163,27 +177,69 @@ function showAdminLoggedInNotice() {
   loginLogoutBtn.classList.remove("hidden");
 }
 
-function paymentRow(p) {
+function shortId(p) {
+  const raw = p.paymentHash || p.id || "";
+  if (!raw) return "—";
+  return raw.length > 14 ? `${raw.slice(0, 8)}…${raw.slice(-4)}` : raw;
+}
+
+function fmtTxnDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, {
+    timeZone: activeTimezone(),
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function paymentRow(p, { rich = false } = {}) {
   const amount = Number(p.amountUsd) || 0;
+  if (!rich) {
+    return `
+    <tr>
+      <td><span class="txn-amount">${money(amount)}</span></td>
+      <td>${statusBadge(p.status)}</td>
+      <td><span class="method-pill">${p.method || "Cash App"}</span></td>
+      <td class="txn-date">${fmtTxnDate(p.settledAt || p.createdAt)}</td>
+    </tr>`;
+  }
   return `
     <tr>
-      <td>${money(amount)}</td>
-      <td>${p.method || "Cash App"}</td>
-      <td>${fmtTime(p.settledAt || p.createdAt)}</td>
+      <td>
+        <div class="txn-amount-cell">
+          <strong>${money(amount)}</strong>
+          <span>USD</span>
+        </div>
+      </td>
+      <td>
+        <div class="method-cell">
+          <span class="method-mark" aria-hidden="true">$</span>
+          <span>${p.method || "Cash App"}</span>
+        </div>
+      </td>
+      <td><code class="txn-id">${shortId(p)}</code></td>
+      <td class="txn-date">${fmtTxnDate(p.settledAt || p.createdAt)}</td>
       <td>${statusBadge(p.status)}</td>
     </tr>`;
 }
 
-function renderPaymentsTable(tbody, payments, filter = "") {
+function renderPaymentsTable(tbody, payments, filter = "", { rich = false, emptyColspan = 4 } = {}) {
+  if (!tbody) return 0;
   const q = filter.trim().toLowerCase();
   const rows = payments.filter((p) => {
     if (!q) return true;
-    return p.status.toLowerCase().includes(q) || (p.method || "").toLowerCase().includes(q);
+    const hay = [p.status, p.method, String(p.amountUsd || ""), p.paymentHash || "", p.id || ""]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
   });
 
   tbody.innerHTML =
-    rows.map((p) => paymentRow(p)).join("") ||
-    `<tr><td colspan="4"><div class="empty-state">No payments yet — share your checkout link to get started.</div></td></tr>`;
+    rows.map((p) => paymentRow(p, { rich })).join("") ||
+    `<tr><td colspan="${emptyColspan}"><div class="empty-state">No payments match this filter.</div></td></tr>`;
+  return rows.length;
 }
 
 function loadPrefs() {
@@ -455,20 +511,78 @@ function exportMonthlyCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+let historyStatusFilter = "all";
+let historyTab = "payments";
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function exportHistoryCsv() {
+  const lines = [
+    ["Amount", "Method", "Status", "Date", "PaymentHash"].join(","),
+    ...allPayments.map((p) =>
+      [
+        Number(p.amountUsd || 0).toFixed(2),
+        p.method || "Cash App",
+        p.status,
+        p.settledAt || p.createdAt || "",
+        p.paymentHash || p.id || "",
+      ].join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `globa-pay-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function renderHistoryView() {
+  const paid = allPayments.filter((p) => p.status === "paid").length;
+  const pending = allPayments.filter((p) => p.status === "pending").length;
+  const expired = allPayments.filter((p) => p.status === "expired").length;
+  setText("histCountAll", String(allPayments.length));
+  setText("histCountPaid", String(paid));
+  setText("histCountPending", String(pending));
+  setText("histCountExpired", String(expired));
+
+  document.querySelectorAll("[data-history-filter]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.historyFilter === historyStatusFilter);
+  });
+  document.querySelectorAll("[data-history-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.historyTab === historyTab);
+  });
+
+  let list = allPayments;
+  if (historyStatusFilter !== "all") {
+    list = list.filter((p) => p.status === historyStatusFilter);
+  }
+
+  const historySearch = document.getElementById("historySearchInput");
+  const globalSearch = document.getElementById("globalSearchInput");
+  const q = (historySearch?.value || globalSearch?.value || "").trim();
+  const shown = renderPaymentsTable(
+    document.getElementById("historyPaymentsTable"),
+    list,
+    q,
+    { rich: true, emptyColspan: 5 }
+  );
+  setText(
+    "historyRangeLabel",
+    shown ? `Showing ${shown} of ${list.length} items` : `Showing 0 of ${list.length} items`
+  );
+}
+
 function renderDashboard() {
   if (!dashboardData) return;
   const { user, office, stats } = dashboardData;
 
   document.getElementById("greeting").textContent = `${greeting()}, ${displayName(user.username)}`;
-  document.getElementById("userName").textContent = displayName(user.username);
-  document.getElementById("userAvatar").textContent = initialsFromName(user.username);
-  const userRole = document.getElementById("userRole");
-  if (userRole) {
-    userRole.textContent = office?.name ? `${office.name}` : "Office account";
-  }
-
-  const topbarOffice = document.getElementById("topbarOfficeName");
-  if (topbarOffice) topbarOffice.textContent = office?.name || "—";
+  setText("sidebarOfficeName", office?.name || "Office");
+  setText("sidebarUserName", displayName(user.username));
 
   const livePill = document.getElementById("livePill");
   if (livePill) {
@@ -495,12 +609,18 @@ function renderDashboard() {
   renderPaymentsTable(
     document.getElementById("todayPaymentsTable"),
     todayPayments,
-    searchInput.value
+    searchInput?.value || ""
   );
-  renderPaymentsTable(document.getElementById("historyPaymentsTable"), allPayments);
+  renderHistoryView();
   renderCheckout();
   renderSettings();
   syncPayoutNav();
+
+  const payoutsTab = document.getElementById("historyPayoutsTab");
+  if (payoutsTab) {
+    payoutsTab.classList.toggle("hidden", !dashboardData?.office?.payoutsEnabled);
+  }
+
   if (dashboardData.payoutBalance) {
     payoutData = {
       balance: dashboardData.payoutBalance,
@@ -672,7 +792,42 @@ checkoutShareBtn.addEventListener("click", async () => {
 });
 heroShareBtn.addEventListener("click", copyPayLink);
 
-searchInput.addEventListener("input", () => renderDashboard());
+if (searchInput) {
+  searchInput.addEventListener("input", () => renderDashboard());
+}
+
+const historySearchInput = document.getElementById("historySearchInput");
+const globalSearchInput = document.getElementById("globalSearchInput");
+if (historySearchInput) {
+  historySearchInput.addEventListener("input", () => renderHistoryView());
+}
+if (globalSearchInput) {
+  globalSearchInput.addEventListener("input", () => {
+    if (historySearchInput) historySearchInput.value = globalSearchInput.value;
+    renderHistoryView();
+  });
+}
+
+document.querySelectorAll("[data-history-filter]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    historyStatusFilter = btn.dataset.historyFilter || "all";
+    renderHistoryView();
+  });
+});
+
+document.querySelectorAll("[data-history-tab]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    historyTab = btn.dataset.historyTab || "payments";
+    renderHistoryView();
+  });
+});
+
+["historyShareBtn"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("click", copyPayLink);
+});
+["historyExportBtn", "historyExportBtn2"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("click", exportHistoryCsv);
+});
 
 monthFilterBtn.addEventListener("click", loadMonthly);
 exportCsvBtn.addEventListener("click", exportMonthlyCsv);
