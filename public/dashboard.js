@@ -47,6 +47,10 @@ let payoutData = null;
 let selectedTheme = "light";
 let dashboardInitialLoad = false;
 let payoutSubmitting = false;
+let historyStatusFilter = "all";
+let historyTab = "payments";
+let payoutStatusFilter = "all";
+let currentView = "dashboard";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -336,31 +340,32 @@ function renderCheckout() {
 }
 
 function setView(view) {
+  currentView = view || "dashboard";
   document.querySelectorAll(".view").forEach((el) => el.classList.add("hidden"));
-  const target = document.getElementById(`view-${view}`);
+  const target = document.getElementById(`view-${currentView}`);
   if (target) target.classList.remove("hidden");
+
+  const onHistoryShell = currentView === "history" || currentView === "payment";
   document.querySelectorAll(".nav-item").forEach((btn) => {
     if (btn.id === "navPayouts") {
-      btn.classList.toggle(
-        "active",
-        (view === "history" || view === "payment") && historyTab === "payouts"
-      );
+      btn.classList.toggle("active", onHistoryShell && historyTab === "payouts");
     } else if (btn.dataset.view === "history") {
-      btn.classList.toggle(
-        "active",
-        (view === "history" || view === "payment") && historyTab !== "payouts"
-      );
+      btn.classList.toggle("active", onHistoryShell && historyTab !== "payouts");
     } else {
-      btn.classList.toggle("active", btn.dataset.view === view);
+      btn.classList.toggle("active", btn.dataset.view === currentView);
     }
   });
-  if (view === "monthly") loadMonthly();
-  if (view === "checkout") renderCheckout();
-  if (view === "settings") renderSettings();
-  if (view === "payouts") loadPayouts();
-  if (view === "history") {
-    if (historyTab === "payouts") loadPayouts().then(() => renderHistoryView());
-    else renderHistoryView();
+
+  if (currentView === "monthly") loadMonthly();
+  if (currentView === "checkout") renderCheckout();
+  if (currentView === "settings") renderSettings();
+  if (currentView === "payouts") loadPayouts();
+  if (currentView === "history") {
+    // Paint the correct tab immediately (don't wait on payout fetch)
+    renderHistoryView();
+    if (historyTab === "payouts") {
+      loadPayouts().then(() => renderHistoryView());
+    }
   }
 }
 
@@ -1051,10 +1056,6 @@ function renderHomeOverview() {
   }
 }
 
-let historyStatusFilter = "all";
-let historyTab = "payments";
-let payoutStatusFilter = "all";
-
 function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
@@ -1152,12 +1153,13 @@ function renderHistoryView() {
       : "Filter by amount, status, or ID…";
   }
 
-  // Keep Transactions nav highlighting correct while on payouts tab
+  // Keep sidebar highlighting correct while on payouts / payments tabs
+  const onHistoryShell = currentView === "history" || currentView === "payment";
   document.querySelectorAll(".nav-item").forEach((btn) => {
     if (btn.id === "navPayouts") {
-      btn.classList.toggle("active", getCurrentView() === "history" && showPayouts);
+      btn.classList.toggle("active", onHistoryShell && showPayouts);
     } else if (btn.dataset.view === "history") {
-      btn.classList.toggle("active", getCurrentView() === "history" && !showPayouts);
+      btn.classList.toggle("active", onHistoryShell && !showPayouts);
     }
   });
 
@@ -1332,8 +1334,7 @@ async function loadDashboard({ showLoading = false } = {}) {
 }
 
 function getCurrentView() {
-  const active = document.querySelector(".nav-item.active");
-  return active?.dataset.view || "dashboard";
+  return currentView || "dashboard";
 }
 
 async function refreshAll() {
@@ -1567,10 +1568,12 @@ updatePasswordBtn.addEventListener("click", async () => {
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
-    if (btn.dataset.historyOpen) {
-      historyTab = btn.dataset.historyOpen;
+    if (btn.id === "navPayouts" || btn.dataset.historyOpen === "payouts") {
+      historyTab = "payouts";
     } else if (btn.dataset.view === "history") {
       historyTab = "payments";
+    } else if (btn.dataset.historyOpen) {
+      historyTab = btn.dataset.historyOpen;
     }
     setView(btn.dataset.view);
   });
