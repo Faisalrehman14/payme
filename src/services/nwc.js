@@ -365,6 +365,71 @@ async function lookupViaNwc(paymentHash) {
   }
 }
 
+/**
+ * Pay a BOLT11 invoice from the platform wallet (Alby API preferred, NWC fallback).
+ * Used for office payouts / withdrawals.
+ */
+async function payBolt11Invoice(invoice) {
+  const bolt11 = String(invoice || "")
+    .replace(/^lightning:/i, "")
+    .trim();
+  if (!bolt11) {
+    throw new Error("Lightning invoice is required");
+  }
+
+  if (getAlbyToken()) {
+    try {
+      const result = await albyFetch("/payments/bolt11", {
+        method: "POST",
+        body: JSON.stringify({ invoice: bolt11 }),
+      });
+      return {
+        paymentHash:
+          result.payment_hash ||
+          result.paymentHash ||
+          null,
+        preimage: result.payment_preimage || result.preimage || null,
+        amountSats: result.amount != null ? Number(result.amount) : null,
+        feeSats: result.fee != null ? Number(result.fee) : null,
+        provider: "alby",
+      };
+    } catch (err) {
+      if (!getNwcUrl()) throw err;
+      console.warn("Alby pay invoice failed, falling back to NWC:", err.message);
+    }
+  }
+
+  if (!getNwcUrl()) {
+    throw new Error(
+      "Payout provider not configured. Set ALBY_API_TOKEN (preferred) or NWC_URL so the platform can send Lightning payments."
+    );
+  }
+
+  const client = createNwcClient();
+  try {
+    const result = await withTimeout(
+      client.payInvoice({ invoice: bolt11 }),
+      NWC_TIMEOUT_MS,
+      "Lightning wallet is not responding. Keep Alby Hub open, or set ALBY_API_TOKEN for cloud payouts."
+    );
+    return {
+      paymentHash: result.payment_hash || result.paymentHash || null,
+      preimage: result.preimage || null,
+      amountSats:
+        result.amount != null
+          ? Math.round(Number(result.amount) / 1000)
+          : null,
+      feeSats:
+        result.fees_paid != null
+          ? Math.round(Number(result.fees_paid) / 1000)
+          : null,
+      provider: "nwc",
+    };
+  } finally {
+    client.close();
+  }
+}
+
 async function lookupInvoiceSettled(paymentHash, providerHint) {
   // LNURL invoices still settle on Alby — check Alby API first when token exists
   if (providerHint === "lnurl" && getAlbyToken()) {
@@ -487,6 +552,7 @@ module.exports = {
   createNwcClient,
   albyFetch,
   createInvoicePayment,
+  payBolt11Invoice,
   lookupInvoiceSettled,
   testPaymentProvider,
   getAlbyTokenDiagnostics,

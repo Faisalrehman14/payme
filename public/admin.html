@@ -54,6 +54,7 @@
         <button type="button" class="nav-item" data-view="offices">Offices</button>
         <button type="button" class="nav-item" data-view="users">Users</button>
         <button type="button" class="nav-item" data-view="payments">Payments</button>
+        <button type="button" class="nav-item" data-view="payouts">Payouts</button>
         <button type="button" class="nav-item" data-view="audit">Audit Log</button>
         <button type="button" class="nav-item" data-view="system">System</button>
       </nav>
@@ -125,6 +126,7 @@
                   <th>Office</th>
                   <th>Staff</th>
                   <th>Status</th>
+                  <th>Payouts</th>
                   <th>Payment Link</th>
                   <th>Paid</th>
                   <th>Pending</th>
@@ -201,6 +203,33 @@
                 </tr>
               </thead>
               <tbody id="paymentsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-view hidden" id="view-payouts">
+        <div class="page-head">
+          <div>
+            <p class="breadcrumb">Admin / Payouts</p>
+            <h1>Office Withdrawals</h1>
+            <p class="sub">Track Lightning payouts. Enable payouts per office from the Offices page.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Office</th>
+                  <th>Amount</th>
+                  <th>Sats</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="adminPayoutsTable"></tbody>
             </table>
           </div>
         </div>

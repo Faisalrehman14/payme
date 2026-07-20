@@ -29,6 +29,7 @@ const userError = document.getElementById("userError");
 const userSuccess = document.getElementById("userSuccess");
 const usersTable = document.getElementById("usersTable");
 const paymentsTable = document.getElementById("paymentsTable");
+const adminPayoutsTable = document.getElementById("adminPayoutsTable");
 const auditTable = document.getElementById("auditTable");
 const siteContactEmail = document.getElementById("siteContactEmail");
 const siteContactHeadline = document.getElementById("siteContactHeadline");
@@ -40,6 +41,7 @@ const siteSettingsUpdated = document.getElementById("siteSettingsUpdated");
 
 let refreshTimer = null;
 let allPayments = [];
+let allPayouts = [];
 let allUsers = [];
 let allOffices = [];
 let auditLogs = [];
@@ -57,9 +59,10 @@ function setLoading() {
     .map(() => `<div class="stat-card skeleton-card"><div class="skeleton"></div></div>`)
     .join("");
   recentPaymentsTable.innerHTML = skeletonRows(5);
-  officesTable.innerHTML = skeletonRows(8);
+  officesTable.innerHTML = skeletonRows(9);
   usersTable.innerHTML = skeletonRows(5);
   paymentsTable.innerHTML = skeletonRows(5);
+  if (adminPayoutsTable) adminPayoutsTable.innerHTML = skeletonRows(5);
   if (auditTable) auditTable.innerHTML = skeletonRows(5);
 }
 
@@ -92,6 +95,12 @@ function officeStatusBadge(active) {
   return active
     ? `<span class="badge paid">Active</span>`
     : `<span class="badge expired">Inactive</span>`;
+}
+
+function payoutEnabledBadge(enabled) {
+  return enabled
+    ? `<span class="badge paid">Enabled</span>`
+    : `<span class="badge expired">Disabled</span>`;
 }
 
 function formatAction(action) {
@@ -219,6 +228,15 @@ function renderOffices(offices) {
           </button>
         </div>
       </td>
+      <td>
+        <div class="inline-actions">
+          ${payoutEnabledBadge(o.payoutsEnabled === true)}
+          <button class="btn btn-secondary btn-sm" type="button" data-toggle-payouts="${o.id}" data-enabled="${o.payoutsEnabled === true}">
+            ${o.payoutsEnabled === true ? "Disable" : "Enable"}
+          </button>
+        </div>
+        <div class="sub" style="margin-top:6px">Avail ${money(o.payoutBalance?.availableUsd || 0)}</div>
+      </td>
       <td><div class="link-box">${o.payLink}</div></td>
       <td>${o.stats.paidCount}</td>
       <td>${o.stats.pendingCount}</td>
@@ -228,7 +246,7 @@ function renderOffices(offices) {
       </td>
     </tr>`
     )
-    .join("") || `<tr><td colspan="8">No offices yet — create your first office above.</td></tr>`;
+    .join("") || `<tr><td colspan="9">No offices yet — create your first office above.</td></tr>`;
 }
 
 function renderUsers(users) {
@@ -275,20 +293,42 @@ function renderPayments(payments) {
     .join("") || `<tr><td colspan="5">No payments found</td></tr>`;
 }
 
+function renderAdminPayouts(payouts) {
+  if (!adminPayoutsTable) return;
+  adminPayoutsTable.innerHTML =
+    (payouts || [])
+      .map(
+        (p) => `
+    <tr>
+      <td>${fmtTime(p.settledAt || p.createdAt)}</td>
+      <td>${p.officeName || "—"}</td>
+      <td>${money(p.amountUsd)}</td>
+      <td>${Number(p.amountSats || 0).toLocaleString()}</td>
+      <td>${statusBadge(p.status)}${
+        p.errorMessage ? `<div class="sub">${p.errorMessage}</div>` : ""
+      }</td>
+    </tr>`
+      )
+      .join("") || `<tr><td colspan="5">No payouts yet</td></tr>`;
+}
+
 async function loadAll({ showLoading = false } = {}) {
   if (showLoading || !adminInitialLoad) {
     setLoading();
   }
-  const [overview, officesData, usersData, paymentsData, auditData, settingsData] = await Promise.all([
-    api("/api/admin/overview"),
-    api("/api/admin/offices"),
-    api("/api/admin/users"),
-    api("/api/admin/payments"),
-    api("/api/admin/audit").catch(() => ({ logs: [] })),
-    api("/api/admin/settings").catch(() => ({ settings: null })),
-  ]);
+  const [overview, officesData, usersData, paymentsData, payoutsData, auditData, settingsData] =
+    await Promise.all([
+      api("/api/admin/overview"),
+      api("/api/admin/offices"),
+      api("/api/admin/users"),
+      api("/api/admin/payments"),
+      api("/api/admin/payouts").catch(() => ({ payouts: [] })),
+      api("/api/admin/audit").catch(() => ({ logs: [] })),
+      api("/api/admin/settings").catch(() => ({ settings: null })),
+    ]);
 
   allPayments = paymentsData.payments;
+  allPayouts = payoutsData.payouts || [];
   allUsers = usersData.users;
   allOffices = officesData.offices;
   auditLogs = auditData.logs || [];
@@ -296,6 +336,7 @@ async function loadAll({ showLoading = false } = {}) {
   renderOffices(allOffices);
   renderUsers(allUsers);
   renderPayments(allPayments);
+  renderAdminPayouts(allPayouts);
   renderAudit(auditLogs);
   renderSiteSettings(settingsData.settings);
   adminInitialLoad = true;
@@ -420,6 +461,26 @@ officesTable.addEventListener("click", async (e) => {
       await api(`/api/admin/offices/${officeId}/active`, {
         method: "PATCH",
         body: JSON.stringify({ active: !currentlyActive }),
+      });
+      await loadAll({ showLoading: false });
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+
+  const payoutToggleBtn = e.target.closest("[data-toggle-payouts]");
+  if (payoutToggleBtn) {
+    const officeId = payoutToggleBtn.dataset.togglePayouts;
+    const currentlyEnabled = payoutToggleBtn.dataset.enabled === "true";
+    const action = currentlyEnabled ? "disable" : "enable";
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} payouts for this office?`)) {
+      return;
+    }
+    try {
+      await api(`/api/admin/offices/${officeId}/payouts`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled: !currentlyEnabled }),
       });
       await loadAll({ showLoading: false });
     } catch (err) {

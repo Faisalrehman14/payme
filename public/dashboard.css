@@ -1032,6 +1032,36 @@ body.dashboard-dark .gross-text { color: #4ade80; }
 body.dashboard-dark .net-text { color: #fb923c; }
 body.dashboard-dark .txn-link { color: #60a5fa; }
 
+.payout-invoice {
+  width: 100%;
+  min-height: 110px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  resize: vertical;
+  margin-top: 6px;
+}
+
+.payout-help {
+  margin: 0 0 14px;
+}
+
+.payout-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+
+.success-msg {
+  color: #16a34a;
+  font-size: 14px;
+  margin-top: 10px;
+  min-height: 1.2em;
+}
+
+.payout-stat-grid {
+  margin-bottom: 18px;
+}
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }

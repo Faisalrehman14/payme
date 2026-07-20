@@ -1,7 +1,7 @@
 const express = require("express");
 const db = require("../../db");
 const { requireAuth, requireAdmin, reqBaseUrl } = require("../middleware/auth");
-const { officePublicView, paymentView } = require("../services/views");
+const { officePublicView, paymentView, payoutView } = require("../services/views");
 const { logAudit } = require("../services/audit");
 const { syncOfficePayments } = require("../services/payment-sync");
 const { parseNwcUrl, testPaymentProvider } = require("../services/nwc");
@@ -68,6 +68,7 @@ router.get("/offices", requireAuth, requireAdmin, async (req, res) => {
         payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
         staff: staffByOffice[office.id] || [],
         stats: await db.getOfficeStats(office.id),
+        payoutBalance: await db.getOfficePayoutBalance(office.id),
       }))
     );
     res.json({ offices: result });
@@ -114,6 +115,35 @@ router.patch("/offices/:id/active", requireAuth, requireAdmin, async (req, res) 
     res.json({ office: officePublicView(office) });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.patch("/offices/:id/payouts", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { enabled } = req.body || {};
+    if (enabled === undefined || enabled === null) {
+      return res.status(400).json({ error: "Payouts enabled status required" });
+    }
+    const office = await db.updateOfficePayoutsEnabled(req.params.id, enabled);
+    await logAudit(req, enabled ? "office.payouts_enable" : "office.payouts_disable", {
+      targetType: "office",
+      targetId: office.id,
+      details: { name: office.name, slug: office.slug, payoutsEnabled: Boolean(enabled) },
+    });
+    res.json({ office: officePublicView(office) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get("/payouts", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const offices = await db.listOffices();
+    const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
+    const payouts = (await db.listAllPayouts()).map((p) => payoutView(p, officesById));
+    res.json({ payouts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

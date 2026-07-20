@@ -9,6 +9,7 @@ const DEFAULT_DB = {
   offices: [],
   users: [],
   payments: [],
+  payouts: [],
   sessions: [],
   auditLogs: [],
   platformSettings: null,
@@ -220,6 +221,7 @@ async function createOffice(name, slug) {
     name: name.trim(),
     slug: cleanSlug,
     active: true,
+    payoutsEnabled: false,
     createdAt: new Date().toISOString(),
   };
 
@@ -238,6 +240,118 @@ async function updateOfficeActive(officeId, active) {
     if (idx !== -1) d.offices[idx].active = Boolean(active);
   });
   return { ...office, active: Boolean(active) };
+}
+
+async function updateOfficePayoutsEnabled(officeId, enabled) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  updateDb((d) => {
+    const idx = d.offices.findIndex((o) => o.id === officeId);
+    if (idx !== -1) d.offices[idx].payoutsEnabled = Boolean(enabled);
+  });
+  return { ...office, payoutsEnabled: Boolean(enabled) };
+}
+
+async function getOfficePayoutBalance(officeId) {
+  const db = readDb();
+  const payments = (db.payments || []).filter(
+    (p) => p.officeId === officeId && p.status === "paid"
+  );
+  const payouts = (db.payouts || []).filter((p) => p.officeId === officeId);
+
+  const totalEarnedUsd = payments.reduce((sum, p) => sum + (Number(p.amountUsd) || 0), 0);
+  const totalWithdrawnUsd = payouts
+    .filter((p) => p.status === "paid")
+    .reduce((sum, p) => sum + (Number(p.amountUsd) || 0), 0);
+  const pendingUsd = payouts
+    .filter((p) => p.status === "pending")
+    .reduce((sum, p) => sum + (Number(p.amountUsd) || 0), 0);
+  const availableUsd = Math.max(
+    0,
+    Math.round((totalEarnedUsd - totalWithdrawnUsd - pendingUsd) * 100) / 100
+  );
+
+  return {
+    totalEarnedUsd: Math.round(totalEarnedUsd * 100) / 100,
+    totalWithdrawnUsd: Math.round(totalWithdrawnUsd * 100) / 100,
+    pendingUsd: Math.round(pendingUsd * 100) / 100,
+    availableUsd,
+  };
+}
+
+async function failStalePendingPayouts(officeId, olderThanMs) {
+  const cutoff = Date.now() - olderThanMs;
+  updateDb((d) => {
+    if (!d.payouts) d.payouts = [];
+    for (const p of d.payouts) {
+      if (
+        p.officeId === officeId &&
+        p.status === "pending" &&
+        new Date(p.createdAt).getTime() < cutoff
+      ) {
+        p.status = "failed";
+        p.errorMessage = p.errorMessage || "Timed out — please try again";
+      }
+    }
+  });
+}
+
+async function createPayout(record) {
+  const payout = {
+    id: newId(),
+    officeId: record.officeId,
+    userId: record.userId || null,
+    paymentHash: record.paymentHash,
+    invoice: record.invoice,
+    amountUsd: Number(record.amountUsd),
+    amountSats: record.amountSats,
+    btcPrice: record.btcPrice ?? null,
+    feeSats: null,
+    status: record.status || "pending",
+    provider: null,
+    preimage: null,
+    errorMessage: null,
+    createdAt: new Date().toISOString(),
+    settledAt: null,
+  };
+  updateDb((d) => {
+    if (!d.payouts) d.payouts = [];
+    d.payouts.unshift(payout);
+  });
+  return payout;
+}
+
+async function updatePayout(id, fields) {
+  let updated = null;
+  updateDb((d) => {
+    if (!d.payouts) d.payouts = [];
+    const idx = d.payouts.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+    d.payouts[idx] = {
+      ...d.payouts[idx],
+      ...fields,
+    };
+    updated = d.payouts[idx];
+  });
+  if (!updated) throw new Error("Payout not found");
+  return updated;
+}
+
+async function getPayoutByPaymentHash(paymentHash) {
+  const db = readDb();
+  return (db.payouts || []).find((p) => p.paymentHash === paymentHash) || null;
+}
+
+async function listPayoutsForOffice(officeId, limit = 100) {
+  const db = readDb();
+  return (db.payouts || [])
+    .filter((p) => p.officeId === officeId)
+    .slice(0, limit);
+}
+
+async function listAllPayouts(limit = 300) {
+  const db = readDb();
+  return (db.payouts || []).slice(0, limit);
 }
 
 async function getDashboardStats(officeId) {
@@ -459,6 +573,7 @@ async function deleteOffice(officeId) {
     d.sessions = d.sessions.filter((s) => !userIds.includes(s.userId));
     d.users = d.users.filter((u) => u.officeId !== officeId);
     d.payments = d.payments.filter((p) => p.officeId !== officeId);
+    d.payouts = (d.payouts || []).filter((p) => p.officeId !== officeId);
     d.offices = d.offices.filter((o) => o.id !== officeId);
   });
   return true;
@@ -490,6 +605,7 @@ module.exports = {
   getOfficeById,
   createOffice,
   updateOfficeActive,
+  updateOfficePayoutsEnabled,
   deleteOffice,
   getDashboardStats,
   getMonthlyStats,
@@ -504,6 +620,13 @@ module.exports = {
   listAllPayments,
   listPendingPayments,
   getOfficeStats,
+  getOfficePayoutBalance,
+  failStalePendingPayouts,
+  createPayout,
+  updatePayout,
+  getPayoutByPaymentHash,
+  listPayoutsForOffice,
+  listAllPayouts,
   createAuditLog,
   listAuditLogs,
   getPlatformSettings,

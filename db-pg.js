@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS offices (
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   active BOOLEAN NOT NULL DEFAULT TRUE,
+  payouts_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   commission_percent NUMERIC(5, 2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -49,6 +50,27 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS idx_payments_office_created ON payments(office_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payments_hash ON payments(payment_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS payouts (
+  id UUID PRIMARY KEY,
+  office_id UUID NOT NULL REFERENCES offices(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  payment_hash TEXT NOT NULL UNIQUE,
+  invoice TEXT NOT NULL,
+  amount_usd NUMERIC(12, 2) NOT NULL,
+  amount_sats INTEGER NOT NULL,
+  btc_price NUMERIC(14, 2),
+  fee_sats INTEGER,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed')),
+  provider TEXT,
+  preimage TEXT,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  settled_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_payouts_office_created ON payouts(office_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payouts_status ON payouts(status);
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID PRIMARY KEY,
@@ -107,7 +129,29 @@ function mapOffice(row) {
     name: row.name,
     slug: row.slug,
     active: row.active,
+    payoutsEnabled: row.payouts_enabled === true,
     createdAt: row.created_at.toISOString(),
+  };
+}
+
+function mapPayout(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    officeId: row.office_id,
+    userId: row.user_id,
+    paymentHash: row.payment_hash,
+    invoice: row.invoice,
+    amountUsd: Number(row.amount_usd),
+    amountSats: row.amount_sats,
+    btcPrice: row.btc_price != null ? Number(row.btc_price) : null,
+    feeSats: row.fee_sats != null ? Number(row.fee_sats) : null,
+    status: row.status,
+    provider: row.provider || null,
+    preimage: row.preimage || null,
+    errorMessage: row.error_message || null,
+    createdAt: row.created_at.toISOString(),
+    settledAt: row.settled_at ? row.settled_at.toISOString() : null,
   };
 }
 
@@ -144,6 +188,9 @@ async function init() {
   await pool.query(SCHEMA_SQL);
   await pool.query(
     "ALTER TABLE offices ADD COLUMN IF NOT EXISTS commission_percent NUMERIC(5, 2) NOT NULL DEFAULT 0"
+  );
+  await pool.query(
+    "ALTER TABLE offices ADD COLUMN IF NOT EXISTS payouts_enabled BOOLEAN NOT NULL DEFAULT FALSE"
   );
   await pool.query(
     "ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_provider TEXT"
@@ -411,6 +458,156 @@ async function updateOfficeActive(officeId, active) {
     [Boolean(active), officeId]
   );
   return mapOffice(rows[0]);
+}
+
+async function updateOfficePayoutsEnabled(officeId, enabled) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const { rows } = await pool.query(
+    `UPDATE offices SET payouts_enabled = $1 WHERE id = $2 RETURNING *`,
+    [Boolean(enabled), officeId]
+  );
+  return mapOffice(rows[0]);
+}
+
+async function getOfficePayoutBalance(officeId) {
+  const [paidRes, payoutRes] = await Promise.all([
+    pool.query(
+      `SELECT COALESCE(SUM(amount_usd), 0)::float AS total
+       FROM payments WHERE office_id = $1 AND status = 'paid'`,
+      [officeId]
+    ),
+    pool.query(
+      `SELECT
+         COALESCE(SUM(amount_usd) FILTER (WHERE status = 'paid'), 0)::float AS withdrawn,
+         COALESCE(SUM(amount_usd) FILTER (WHERE status = 'pending'), 0)::float AS pending
+       FROM payouts WHERE office_id = $1`,
+      [officeId]
+    ),
+  ]);
+
+  const totalEarnedUsd = Number(paidRes.rows[0]?.total || 0);
+  const totalWithdrawnUsd = Number(payoutRes.rows[0]?.withdrawn || 0);
+  const pendingUsd = Number(payoutRes.rows[0]?.pending || 0);
+  const availableUsd = Math.max(
+    0,
+    Math.round((totalEarnedUsd - totalWithdrawnUsd - pendingUsd) * 100) / 100
+  );
+
+  return {
+    totalEarnedUsd: Math.round(totalEarnedUsd * 100) / 100,
+    totalWithdrawnUsd: Math.round(totalWithdrawnUsd * 100) / 100,
+    pendingUsd: Math.round(pendingUsd * 100) / 100,
+    availableUsd,
+  };
+}
+
+async function failStalePendingPayouts(officeId, olderThanMs) {
+  const cutoff = new Date(Date.now() - olderThanMs);
+  await pool.query(
+    `UPDATE payouts
+     SET status = 'failed',
+         error_message = COALESCE(error_message, 'Timed out — please try again')
+     WHERE office_id = $1
+       AND status = 'pending'
+       AND created_at < $2`,
+    [officeId, cutoff.toISOString()]
+  );
+}
+
+async function createPayout(record) {
+  const id = crypto.randomUUID();
+  const { rows } = await pool.query(
+    `INSERT INTO payouts (
+       id, office_id, user_id, payment_hash, invoice,
+       amount_usd, amount_sats, btc_price, status
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     RETURNING *`,
+    [
+      id,
+      record.officeId,
+      record.userId || null,
+      record.paymentHash,
+      record.invoice,
+      record.amountUsd,
+      record.amountSats,
+      record.btcPrice ?? null,
+      record.status || "pending",
+    ]
+  );
+  return mapPayout(rows[0]);
+}
+
+async function updatePayout(id, fields) {
+  const sets = [];
+  const values = [];
+  let i = 1;
+
+  if (fields.status !== undefined) {
+    sets.push(`status = $${i++}`);
+    values.push(fields.status);
+  }
+  if (fields.settledAt !== undefined) {
+    sets.push(`settled_at = $${i++}`);
+    values.push(fields.settledAt);
+  }
+  if (fields.provider !== undefined) {
+    sets.push(`provider = $${i++}`);
+    values.push(fields.provider);
+  }
+  if (fields.preimage !== undefined) {
+    sets.push(`preimage = $${i++}`);
+    values.push(fields.preimage);
+  }
+  if (fields.feeSats !== undefined) {
+    sets.push(`fee_sats = $${i++}`);
+    values.push(fields.feeSats);
+  }
+  if (fields.errorMessage !== undefined) {
+    sets.push(`error_message = $${i++}`);
+    values.push(fields.errorMessage);
+  }
+
+  if (!sets.length) {
+    const { rows } = await pool.query("SELECT * FROM payouts WHERE id = $1", [id]);
+    return mapPayout(rows[0]);
+  }
+
+  values.push(id);
+  const { rows } = await pool.query(
+    `UPDATE payouts SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`,
+    values
+  );
+  return mapPayout(rows[0]);
+}
+
+async function getPayoutByPaymentHash(paymentHash) {
+  const { rows } = await pool.query(
+    "SELECT * FROM payouts WHERE payment_hash = $1 LIMIT 1",
+    [paymentHash]
+  );
+  return mapPayout(rows[0]);
+}
+
+async function listPayoutsForOffice(officeId, limit = 100) {
+  const { rows } = await pool.query(
+    `SELECT * FROM payouts
+     WHERE office_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [officeId, limit]
+  );
+  return rows.map(mapPayout);
+}
+
+async function listAllPayouts(limit = 300) {
+  const { rows } = await pool.query(
+    `SELECT * FROM payouts
+     ORDER BY created_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+  return rows.map(mapPayout);
 }
 
 async function getDashboardStats(officeId) {
@@ -759,6 +956,7 @@ module.exports = {
   getOfficeById,
   createOffice,
   updateOfficeActive,
+  updateOfficePayoutsEnabled,
   deleteOffice,
   getDashboardStats,
   getMonthlyStats,
@@ -773,6 +971,13 @@ module.exports = {
   listAllPayments,
   listPendingPayments,
   getOfficeStats,
+  getOfficePayoutBalance,
+  failStalePendingPayouts,
+  createPayout,
+  updatePayout,
+  getPayoutByPaymentHash,
+  listPayoutsForOffice,
+  listAllPayouts,
   createAuditLog,
   listAuditLogs,
   getPlatformSettings,

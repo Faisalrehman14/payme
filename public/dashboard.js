@@ -43,8 +43,10 @@ let refreshTimer = null;
 let dashboardData = null;
 let allPayments = [];
 let monthlyData = null;
+let payoutData = null;
 let selectedTheme = "light";
 let dashboardInitialLoad = false;
+let payoutSubmitting = false;
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -206,6 +208,63 @@ function setView(view) {
   if (view === "monthly") loadMonthly();
   if (view === "checkout") renderCheckout();
   if (view === "settings") renderSettings();
+  if (view === "payouts") loadPayouts();
+}
+
+function syncPayoutNav() {
+  const nav = document.getElementById("navPayouts");
+  if (!nav) return;
+  const enabled = Boolean(dashboardData?.office?.payoutsEnabled);
+  nav.classList.toggle("hidden", !enabled);
+  if (!enabled && getCurrentView() === "payouts") {
+    setView("dashboard");
+  }
+}
+
+function payoutStatusBadge(status) {
+  const map = {
+    paid: { className: "paid", label: "completed" },
+    pending: { className: "pending", label: "pending" },
+    failed: { className: "expired", label: "failed" },
+  };
+  const info = map[status] || { className: status, label: status };
+  return `<span class="badge ${info.className}">${info.label}</span>`;
+}
+
+function renderPayouts() {
+  if (!payoutData) return;
+  const { balance, payouts } = payoutData;
+  document.getElementById("payoutAvailable").textContent = money(balance.availableUsd);
+  document.getElementById("payoutEarned").textContent = money(balance.totalEarnedUsd);
+  document.getElementById("payoutWithdrawn").textContent = money(balance.totalWithdrawnUsd);
+
+  const tbody = document.getElementById("payoutHistoryTable");
+  tbody.innerHTML =
+    (payouts || [])
+      .map(
+        (p) => `
+      <tr>
+        <td>${money(p.amountUsd)}</td>
+        <td>${Number(p.amountSats || 0).toLocaleString()} sats</td>
+        <td>${fmtTime(p.settledAt || p.createdAt)}</td>
+        <td>${payoutStatusBadge(p.status)}${
+          p.errorMessage ? `<div class="sub">${p.errorMessage}</div>` : ""
+        }</td>
+      </tr>`
+      )
+      .join("") ||
+    `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">💸</div>No payouts yet.</div></td></tr>`;
+}
+
+async function loadPayouts() {
+  if (!dashboardData?.office?.payoutsEnabled) return;
+  try {
+    payoutData = await api("/api/dashboard/payouts");
+    renderPayouts();
+  } catch (err) {
+    const errEl = document.getElementById("payoutError");
+    if (errEl) errEl.textContent = err.message;
+  }
 }
 
 function initMonthFilters() {
@@ -368,6 +427,16 @@ function renderDashboard() {
   renderPaymentsTable(document.getElementById("historyPaymentsTable"), allPayments);
   renderCheckout();
   renderSettings();
+  syncPayoutNav();
+  if (dashboardData.payoutBalance) {
+    payoutData = {
+      balance: dashboardData.payoutBalance,
+      payouts: payoutData?.payouts || [],
+    };
+    if (getCurrentView() === "payouts") {
+      renderPayouts();
+    }
+  }
 }
 
 function setDashboardLoading() {
@@ -415,6 +484,7 @@ async function refreshAll() {
   await loadDashboard({ showLoading: false });
   const view = getCurrentView();
   if (view === "monthly") await loadMonthly();
+  if (view === "payouts") await loadPayouts();
 }
 
 function startAutoRefresh() {
@@ -580,6 +650,47 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
 
 document.querySelectorAll("[data-view-jump]").forEach((btn) => {
   btn.addEventListener("click", () => setView(btn.dataset.viewJump));
+});
+
+const requestPayoutBtn = document.getElementById("requestPayoutBtn");
+const payoutInvoice = document.getElementById("payoutInvoice");
+const payoutError = document.getElementById("payoutError");
+const payoutSuccess = document.getElementById("payoutSuccess");
+
+requestPayoutBtn?.addEventListener("click", async () => {
+  if (payoutSubmitting) return;
+  payoutError.textContent = "";
+  payoutSuccess.textContent = "";
+  const invoice = (payoutInvoice?.value || "").trim();
+  if (!invoice) {
+    payoutError.textContent = "Paste a Lightning invoice first";
+    return;
+  }
+
+  payoutSubmitting = true;
+  requestPayoutBtn.disabled = true;
+  requestPayoutBtn.textContent = "Sending…";
+  try {
+    const data = await api("/api/dashboard/payouts", {
+      method: "POST",
+      body: JSON.stringify({ invoice }),
+    });
+    payoutInvoice.value = "";
+    payoutSuccess.textContent = `Payout of ${money(data.payout.amountUsd)} sent successfully.`;
+    payoutData = {
+      balance: data.balance,
+      payouts: [data.payout, ...(payoutData?.payouts || [])],
+    };
+    if (dashboardData) dashboardData.payoutBalance = data.balance;
+    renderPayouts();
+    await loadDashboard({ showLoading: false });
+  } catch (err) {
+    payoutError.textContent = err.message;
+  } finally {
+    payoutSubmitting = false;
+    requestPayoutBtn.disabled = false;
+    requestPayoutBtn.textContent = "Withdraw Now";
+  }
 });
 
 loginPass.addEventListener("keydown", (e) => {

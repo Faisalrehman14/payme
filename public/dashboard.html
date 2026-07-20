@@ -89,6 +89,9 @@
         <button type="button" class="nav-item" data-view="history">
           <span class="nav-icon">☰</span> Payment History
         </button>
+        <button type="button" class="nav-item hidden" data-view="payouts" id="navPayouts">
+          <span class="nav-icon">₿</span> Payouts
+        </button>
         <button type="button" class="nav-item" data-view="monthly">
           <span class="nav-icon">▦</span> Monthly Records
         </button>
@@ -202,6 +205,81 @@
                   </tr>
                 </thead>
                 <tbody id="historyPaymentsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="view-payouts">
+          <div class="page-header">
+            <p class="breadcrumb">Dashboard / Payouts</p>
+            <h1>Withdraw Balance</h1>
+            <p class="sub">Paste a Lightning invoice to withdraw your available balance to your wallet.</p>
+          </div>
+
+          <div class="stat-grid payout-stat-grid">
+            <div class="stat-card highlight">
+              <div class="stat-card-top">
+                <div class="stat-label">Available for Payout</div>
+                <div class="stat-icon green">$</div>
+              </div>
+              <div class="stat-value" id="payoutAvailable">$0.00</div>
+              <div class="stat-sub">Ready to withdraw</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-top">
+                <div class="stat-label">Total Earned</div>
+                <div class="stat-icon blue">▲</div>
+              </div>
+              <div class="stat-value" id="payoutEarned">$0.00</div>
+              <div class="stat-sub">All paid customer payments</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-top">
+                <div class="stat-label">Total Withdrawn</div>
+                <div class="stat-icon orange">↓</div>
+              </div>
+              <div class="stat-value" id="payoutWithdrawn">$0.00</div>
+              <div class="stat-sub">Successfully paid out</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Request Payout</h2>
+            </div>
+            <p class="sub payout-help">
+              Create a Lightning invoice in your wallet for the amount you want (up to your available balance), then paste it below.
+            </p>
+            <label class="field-label" for="payoutInvoice">Lightning Invoice</label>
+            <textarea
+              id="payoutInvoice"
+              class="settings-input payout-invoice"
+              rows="4"
+              placeholder="lnbc1… paste your Lightning invoice here"
+            ></textarea>
+            <div class="payout-actions">
+              <button type="button" class="btn btn-primary" id="requestPayoutBtn">Withdraw Now</button>
+            </div>
+            <p class="error" id="payoutError"></p>
+            <p class="success-msg" id="payoutSuccess"></p>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Payout History</h2>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Amount</th>
+                    <th>Sats</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="payoutHistoryTable"></tbody>
               </table>
             </div>
           </div>

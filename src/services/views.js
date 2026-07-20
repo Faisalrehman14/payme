@@ -4,6 +4,7 @@ function officePublicView(office) {
     name: office.name,
     slug: office.slug,
     active: office.active !== false,
+    payoutsEnabled: office.payoutsEnabled === true,
   };
 }
 
@@ -26,4 +27,20 @@ function paymentView(payment, officesById) {
   };
 }
 
-module.exports = { officePublicView, paymentView };
+function payoutView(payout, officesById) {
+  const office = officesById?.[payout.officeId];
+  return {
+    id: payout.id,
+    officeId: payout.officeId,
+    officeName: office ? office.name : "Unknown",
+    amountUsd: Number(payout.amountUsd) || 0,
+    amountSats: payout.amountSats,
+    paymentHash: payout.paymentHash,
+    status: payout.status,
+    errorMessage: payout.errorMessage || null,
+    createdAt: payout.createdAt,
+    settledAt: payout.settledAt,
+  };
+}
+
+module.exports = { officePublicView, paymentView, payoutView };
