@@ -733,14 +733,24 @@ body.dashboard-dark .main-topbar {
 .home-card {
   background: var(--dash-surface);
   border: 1px solid var(--dash-border);
-  border-radius: 12px;
-  padding: 18px;
-  box-shadow: var(--dash-shadow);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow:
+    0 1px 1px rgba(18, 38, 63, 0.02),
+    0 8px 24px rgba(18, 38, 63, 0.04);
   min-width: 0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-card:hover {
+  border-color: #d0d7e2;
+  box-shadow:
+    0 1px 1px rgba(18, 38, 63, 0.03),
+    0 12px 28px rgba(18, 38, 63, 0.06);
 }
 
 .home-card-wide {
-  padding: 20px;
+  padding: 22px 22px 14px;
 }
 
 .home-card-head {
@@ -774,9 +784,9 @@ body.dashboard-dark .main-topbar {
 }
 
 .home-compare strong {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   color: var(--dash-text);
 }
 
@@ -798,21 +808,50 @@ body.dashboard-dark .main-topbar {
   font-weight: 600;
 }
 
+.home-chip {
+  background: #eff6ff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+
 .home-chart {
-  height: 120px;
-  margin-top: 8px;
+  height: auto;
+  min-height: 140px;
+  margin-top: 4px;
+  color: var(--dash-text);
 }
 
 .home-chart-sm {
-  height: 72px;
-  margin-top: 12px;
+  height: auto;
+  min-height: 110px;
+  margin-top: 4px;
+  color: var(--dash-text);
+}
+
+.pro-chart {
+  width: 100%;
+}
+
+.pro-chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart-axis {
+  fill: #8792a2;
+  font-size: 10px;
+  font-family: var(--gp-font);
+}
+
+.chart-bar {
+  transition: fill-opacity 0.15s ease;
 }
 
 .home-balance-value,
 .home-metric {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   color: var(--dash-text);
   font-variant-numeric: tabular-nums;
 }
@@ -841,7 +880,9 @@ body.dashboard-dark .main-topbar {
 }
 
 .home-cta-card {
-  background: linear-gradient(160deg, #eff6ff, #fff);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.12), transparent 45%),
+    linear-gradient(165deg, #f8fbff, #ffffff);
   border-color: #dbeafe;
 }
 
@@ -890,11 +931,12 @@ body.dashboard-dark .home-cta-card {
 
 .payments-bar {
   display: flex;
-  height: 12px;
+  height: 14px;
   border-radius: 999px;
   overflow: hidden;
-  background: var(--dash-border);
-  margin: 8px 0 14px;
+  background: #eef2f7;
+  margin: 10px 0 16px;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .payments-bar .seg {
@@ -923,6 +965,13 @@ body.dashboard-dark .home-cta-card {
   margin-left: auto;
   color: var(--dash-text);
   font-variant-numeric: tabular-nums;
+}
+
+.payments-legend em {
+  font-style: normal;
+  color: var(--dash-text-soft);
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .payments-legend .dot {

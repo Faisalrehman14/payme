@@ -539,26 +539,158 @@ function isYesterday(iso) {
   return dateKeyInTz(iso) === yKey;
 }
 
-function sparklineSvg(values, color = "#1d4ed8") {
-  const nums = values.length ? values : [0, 0];
-  const w = 320;
-  const h = 88;
-  const pad = 8;
-  const max = Math.max(...nums, 1);
-  const step = (w - pad * 2) / Math.max(nums.length - 1, 1);
-  const pts = nums
-    .map((v, i) => {
-      const x = pad + i * step;
-      const y = h - pad - (v / max) * (h - pad * 2);
-      return `${x},${y}`;
+function chartUid() {
+  return `c${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function smoothLinePath(points) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const p0 = points[i === 0 ? i : i - 1];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
+function renderProChart(options = {}) {
+  const {
+    values = [],
+    labels = [],
+    color = "#1d4ed8",
+    height = 140,
+    mode = "area",
+    formatTip = (v) => String(v),
+  } = options;
+  const nums = values.length ? values.map((v) => Number(v) || 0) : [0, 0];
+  const id = chartUid();
+  const w = 560;
+  const h = height;
+  const padL = 8;
+  const padR = 8;
+  const padT = 16;
+  const padB = labels.length ? 28 : 14;
+  const max = Math.max(...nums, 0.0001);
+  const min = 0;
+  const span = Math.max(max - min, 0.0001);
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+  const n = nums.length;
+  const step = innerW / Math.max(n - 1, 1);
+
+  const points = nums.map((v, i) => ({
+    x: padL + (n === 1 ? innerW / 2 : i * step),
+    y: padT + innerH - ((v - min) / span) * innerH,
+    v,
+    label: labels[i] || "",
+  }));
+
+  const grid = [0.25, 0.5, 0.75]
+    .map((t) => {
+      const y = padT + innerH * (1 - t);
+      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="currentColor" stroke-opacity="0.08" stroke-width="1" />`;
     })
-    .join(" ");
-  const area = `${pad},${h - pad} ${pts} ${pad + (nums.length - 1) * step},${h - pad}`;
+    .join("");
+
+  const baselineY = padT + innerH;
+
+  if (mode === "bars") {
+    const gap = Math.min(10, innerW / n / 3);
+    const barW = Math.max(3, innerW / n - gap);
+    const bars = points
+      .map((p, i) => {
+        const x = padL + (i + 0.5) * (innerW / n) - barW / 2;
+        const barH = Math.max(2, ((nums[i] - min) / span) * innerH);
+        const y = baselineY - barH;
+        const active = nums[i] > 0;
+        return `<rect class="chart-bar${active ? " is-active" : ""}" x="${x}" y="${y}" width="${barW}" height="${barH}" rx="3"
+          fill="url(#${id}bar)" fill-opacity="${active ? 1 : 0.18}">
+          <title>${p.label ? `${p.label}: ` : ""}${formatTip(nums[i])}</title>
+        </rect>`;
+      })
+      .join("");
+
+    const xLabels = labels
+      .map((label, i) => {
+        if (!label) return "";
+        const show = n <= 12 || i % Math.ceil(n / 6) === 0 || i === n - 1;
+        if (!show) return "";
+        const x = padL + (i + 0.5) * (innerW / n);
+        return `<text x="${x}" y="${h - 8}" text-anchor="middle" class="chart-axis">${label}</text>`;
+      })
+      .join("");
+
+    return `
+      <div class="pro-chart">
+        <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img">
+          <defs>
+            <linearGradient id="${id}bar" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${color}"/>
+              <stop offset="100%" stop-color="${color}" stop-opacity="0.55"/>
+            </linearGradient>
+          </defs>
+          ${grid}
+          <line x1="${padL}" y1="${baselineY}" x2="${w - padR}" y2="${baselineY}" stroke="currentColor" stroke-opacity="0.12" />
+          ${bars}
+          ${xLabels}
+        </svg>
+      </div>`;
+  }
+
+  const line = smoothLinePath(points);
+  const area = `${line} L ${points[points.length - 1].x} ${baselineY} L ${points[0].x} ${baselineY} Z`;
+  const last = points[points.length - 1];
+  const dots = points
+    .filter((p) => p.v > 0)
+    .map(
+      (p) =>
+        `<circle cx="${p.x}" cy="${p.y}" r="3.2" fill="#fff" stroke="${color}" stroke-width="2">
+          <title>${p.label ? `${p.label}: ` : ""}${formatTip(p.v)}</title>
+        </circle>`
+    )
+    .join("");
+
+  const xLabels = labels
+    .map((label, i) => {
+      if (!label) return "";
+      const show = n <= 8 || i % Math.ceil(n / 5) === 0 || i === n - 1 || i === 0;
+      if (!show) return "";
+      return `<text x="${points[i].x}" y="${h - 8}" text-anchor="middle" class="chart-axis">${label}</text>`;
+    })
+    .join("");
+
   return `
-    <svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="none">
-      <polygon fill="${color}" fill-opacity="0.08" points="${area}"></polygon>
-      <polyline fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${pts}"></polyline>
-    </svg>`;
+    <div class="pro-chart">
+      <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img">
+        <defs>
+          <linearGradient id="${id}fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
+            <stop offset="70%" stop-color="${color}" stop-opacity="0.06"/>
+            <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+          </linearGradient>
+          <filter id="${id}glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="1.2" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        ${grid}
+        <line x1="${padL}" y1="${baselineY}" x2="${w - padR}" y2="${baselineY}" stroke="currentColor" stroke-opacity="0.12" />
+        <path d="${area}" fill="url(#${id}fill)" />
+        <path d="${line}" fill="none" stroke="${color}" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" filter="url(#${id}glow)" />
+        ${dots}
+        <circle cx="${last.x}" cy="${last.y}" r="4.5" fill="${color}" />
+        <circle cx="${last.x}" cy="${last.y}" r="8" fill="${color}" fill-opacity="0.15" />
+        ${xLabels}
+      </svg>
+    </div>`;
 }
 
 function hourBucketsForDay(payments) {
@@ -575,6 +707,10 @@ function hourBucketsForDay(payments) {
   return buckets;
 }
 
+function hourLabels() {
+  return Array.from({ length: 24 }, (_, h) => (h % 6 === 0 ? `${h}:00` : ""));
+}
+
 function lastNDayTotals(n = 14) {
   const days = [];
   const now = new Date();
@@ -582,7 +718,11 @@ function lastNDayTotals(n = 14) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
     const key = dateKeyInTz(d.toISOString());
-    days.push({ key, total: 0, count: 0 });
+    const label = new Date(key + "T12:00:00").toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+    days.push({ key, total: 0, count: 0, label });
   }
   const byKey = Object.fromEntries(days.map((d) => [d.key, d]));
   for (const p of allPayments) {
@@ -604,17 +744,51 @@ function renderHomeOverview() {
     (p) => p.status === "paid" && isYesterday(p.settledAt || p.createdAt)
   );
   const yesterdayTotal = paidYesterday.reduce((s, p) => s + (Number(p.amountUsd) || 0), 0);
-  setText("todayVsYesterday", `vs ${money(yesterdayTotal)} yesterday`);
+  const delta = (dashboardData?.stats?.todayTotal || 0) - yesterdayTotal;
+  const deltaLabel =
+    yesterdayTotal === 0 && delta === 0
+      ? "No activity yesterday"
+      : `${delta >= 0 ? "+" : ""}${money(delta)} vs yesterday`;
+  setText("todayVsYesterday", deltaLabel);
   setText("todayCountChip", `${paidToday.length} payment${paidToday.length === 1 ? "" : "s"}`);
 
   const todayChart = document.getElementById("todayVolumeChart");
-  if (todayChart) todayChart.innerHTML = sparklineSvg(hourBucketsForDay(paidToday));
+  if (todayChart) {
+    const hours = hourBucketsForDay(paidToday);
+    const nonZero = hours.filter((v) => v > 0).length;
+    todayChart.innerHTML = renderProChart({
+      values: hours,
+      labels: hourLabels(),
+      color: "#1d4ed8",
+      height: 168,
+      mode: nonZero <= 6 ? "bars" : "area",
+      formatTip: (v) => money(v),
+    });
+  }
 
   const daySeries = lastNDayTotals(14);
   const monthChart = document.getElementById("homeMonthChart");
-  if (monthChart) monthChart.innerHTML = sparklineSvg(daySeries.map((d) => d.total));
+  if (monthChart) {
+    monthChart.innerHTML = renderProChart({
+      values: daySeries.map((d) => d.total),
+      labels: daySeries.map((d) => d.label),
+      color: "#1d4ed8",
+      height: 110,
+      mode: "area",
+      formatTip: (v) => money(v),
+    });
+  }
   const todayCountChart = document.getElementById("homeTodayCountChart");
-  if (todayCountChart) todayCountChart.innerHTML = sparklineSvg(daySeries.map((d) => d.count), "#0d9488");
+  if (todayCountChart) {
+    todayCountChart.innerHTML = renderProChart({
+      values: daySeries.map((d) => d.count),
+      labels: daySeries.map((d) => d.label),
+      color: "#0f766e",
+      height: 110,
+      mode: "area",
+      formatTip: (v) => `${v} txns`,
+    });
+  }
 
   const succeeded = allPayments.filter((p) => p.status === "paid");
   const pending = allPayments.filter((p) => p.status === "pending");
@@ -630,16 +804,16 @@ function renderHomeOverview() {
   const bar = document.getElementById("homePaymentsBar");
   if (bar) {
     bar.innerHTML = `
-      <span class="seg succeeded" style="width:${sPct}%"></span>
-      <span class="seg pending" style="width:${pPct}%"></span>
-      <span class="seg expired" style="width:${ePct}%"></span>`;
+      <span class="seg succeeded" style="width:${sPct}%" title="Succeeded ${money(succeededAmt)}"></span>
+      <span class="seg pending" style="width:${pPct}%" title="Pending ${money(pendingAmt)}"></span>
+      <span class="seg expired" style="width:${ePct}%" title="Expired ${money(expiredAmt)}"></span>`;
   }
   const legend = document.getElementById("homePaymentsLegend");
   if (legend) {
     legend.innerHTML = `
-      <div><i class="dot succeeded"></i>Succeeded <strong>${money(succeededAmt)}</strong></div>
-      <div><i class="dot pending"></i>Pending <strong>${money(pendingAmt)}</strong></div>
-      <div><i class="dot expired"></i>Expired <strong>${money(expiredAmt)}</strong></div>`;
+      <div><i class="dot succeeded"></i>Succeeded <em>${sPct.toFixed(0)}%</em> <strong>${money(succeededAmt)}</strong></div>
+      <div><i class="dot pending"></i>Pending <em>${pPct.toFixed(0)}%</em> <strong>${money(pendingAmt)}</strong></div>
+      <div><i class="dot expired"></i>Expired <em>${ePct.toFixed(0)}%</em> <strong>${money(expiredAmt)}</strong></div>`;
   }
 
   setText("pendingCountPill", `${pending.length} pending`);
