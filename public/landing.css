@@ -317,11 +317,9 @@
   width: 24px;
   height: 24px;
   border-radius: 7px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #38bdf8, #2563eb);
-  font-weight: 800;
-  font-size: 11px;
+  display: block;
+  object-fit: cover;
+  box-shadow: none;
 }
 
 .pay-mock-secure {
@@ -830,9 +828,9 @@
 .brand-mark.sm {
   width: 32px;
   height: 32px;
-  font-size: 14px;
   border-radius: 9px;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
 }
 
 .foot-col {

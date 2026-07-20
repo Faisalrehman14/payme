@@ -1,10 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Globa Pay">
   <defs>
-    <linearGradient id="gp" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#1d4ed8"/>
+    <linearGradient id="gpBg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1e3a8a"/>
+      <stop offset="0.55" stop-color="#1d4ed8"/>
       <stop offset="1" stop-color="#0ea5e9"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="16" fill="url(#gp)"/>
-  <path fill="#fff" d="M18 46V18h9.2c6.4 0 10.4 3.5 10.4 9.1 0 3.8-2 6.6-5.4 7.9L39.4 46h-5.5l-5.8-7.2H25.4V46H18zm7.4-13h4.8c3.1 0 4.8-1.5 4.8-3.8s-1.7-3.8-4.8-3.8h-4.8V33z"/>
+  <rect width="64" height="64" rx="16" fill="url(#gpBg)"/>
+  <path fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M45.2 23.4 A15.6 15.6 0 1 0 46.6 39.2 H34"/>
+  <path fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"
+    d="M32 17.2 C26.8 23.6 26.8 40.4 32 46.8"/>
+  <path fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" d="M17.6 32 H35.2"/>
+  <path fill="#fff" d="M42.4 27.6 L37.8 35.2 H41.6 L39.2 43.4 L48.2 33.4 H44.1 Z"/>
 </svg>

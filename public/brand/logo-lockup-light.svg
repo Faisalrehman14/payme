@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" role="img" aria-label="Globa Pay">
+  <defs>
+    <linearGradient id="gpBg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1e3a8a"/>
+      <stop offset="0.55" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(8,16)">
+    <rect width="64" height="64" rx="16" fill="url(#gpBg)"/>
+    <path fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"
+      d="M45.2 23.4 A15.6 15.6 0 1 0 46.6 39.2 H34"/>
+    <path fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"
+      d="M32 17.2 C26.8 23.6 26.8 40.4 32 46.8"/>
+    <path fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" d="M17.6 32 H35.2"/>
+    <path fill="#fff" d="M42.4 27.6 L37.8 35.2 H41.6 L39.2 43.4 L48.2 33.4 H44.1 Z"/>
+  </g>
+
+  <text x="92" y="52" fill="#0f172a"
+        font-family="Plus Jakarta Sans, Segoe UI, system-ui, sans-serif"
+        font-size="34" font-weight="800" letter-spacing="-0.6">Globa Pay</text>
+  <text x="94" y="74" fill="#64748b"
+        font-family="Plus Jakarta Sans, Segoe UI, system-ui, sans-serif"
+        font-size="11" font-weight="700" letter-spacing="2.8">PAYMENT INFRASTRUCTURE</text>
+</svg>
