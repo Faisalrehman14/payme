@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/brand.css" />
-  <link rel="stylesheet" href="/dashboard.css?v=7" />
+  <link rel="stylesheet" href="/dashboard.css?v=8" />
 </head>
 <body>
   <section id="loginSection" class="login-shell">
@@ -83,11 +83,11 @@
           </span>
           Transactions
         </button>
-        <button type="button" class="nav-item hidden" data-view="payouts" id="navPayouts">
+        <button type="button" class="nav-item hidden" data-view="history" data-history-open="payouts" id="navPayouts">
           <span class="nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>
           </span>
-          Balances
+          Payouts
         </button>
 
         <p class="nav-section">Product</p>
@@ -199,7 +199,7 @@
 
           <div class="txn-tabs" role="tablist">
             <button type="button" class="txn-tab active" data-history-tab="payments">Payments</button>
-            <button type="button" class="txn-tab" data-view-jump="payouts" id="historyPayoutsTab">Payouts</button>
+            <button type="button" class="txn-tab hidden" data-history-tab="payouts" id="historyPayoutsTab">Payouts</button>
             <button type="button" class="txn-tab" data-history-tab="all">All activity</button>
           </div>
 
@@ -222,14 +222,36 @@
             </button>
           </div>
 
+          <div class="txn-summary hidden" id="payoutSummary">
+            <button type="button" class="txn-chip active" data-payout-filter="all">
+              <span>All</span>
+              <strong id="payoutCountAll">0</strong>
+            </button>
+            <button type="button" class="txn-chip" data-payout-filter="paid">
+              <span>Paid</span>
+              <strong id="payoutCountPaid">0</strong>
+            </button>
+            <button type="button" class="txn-chip" data-payout-filter="pending">
+              <span>Pending</span>
+              <strong id="payoutCountPending">0</strong>
+            </button>
+            <button type="button" class="txn-chip" data-payout-filter="failed">
+              <span>Failed</span>
+              <strong id="payoutCountFailed">0</strong>
+            </button>
+          </div>
+
           <div class="txn-toolbar">
             <div class="txn-filters">
               <input type="search" id="historySearchInput" class="txn-search" placeholder="Filter by amount, status, or ID…" />
             </div>
-            <button type="button" class="btn btn-outline btn-sm" id="historyExportBtn2">Export</button>
+            <div class="txn-toolbar-actions">
+              <button type="button" class="btn btn-outline btn-sm hidden" id="historyWithdrawBtn">Request payout</button>
+              <button type="button" class="btn btn-outline btn-sm" id="historyExportBtn2">Export</button>
+            </div>
           </div>
 
-          <div class="panel txn-panel">
+          <div class="panel txn-panel" id="historyPaymentsPanel">
             <div class="table-wrap">
               <table class="txn-table txn-table-rich">
                 <thead>
@@ -248,13 +270,34 @@
               <span id="historyRangeLabel">Showing 0 items</span>
             </div>
           </div>
+
+          <div class="panel txn-panel hidden" id="historyPayoutsPanel">
+            <div class="table-wrap">
+              <table class="txn-table txn-table-rich">
+                <thead>
+                  <tr>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>Sats</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody id="historyPayoutsTable"></tbody>
+              </table>
+            </div>
+            <div class="txn-footer">
+              <span id="payoutRangeLabel">Showing 0 items</span>
+            </div>
+          </div>
         </section>
 
         <section class="view hidden" id="view-payouts">
           <div class="page-header">
-            <p class="breadcrumb">Dashboard / Payouts</p>
-            <h1>Withdraw Balance</h1>
-            <p class="sub">Paste a Lightning invoice to withdraw your available balance to your wallet.</p>
+            <p class="breadcrumb">Transactions / Payouts</p>
+            <h1>Request payout</h1>
+            <p class="sub">Paste a Lightning invoice to withdraw your available balance.</p>
+            <button type="button" class="btn btn-outline" data-view-jump="history" data-history-open="payouts" id="backToPayoutHistory">Back to payout history</button>
           </div>
 
           <div class="stat-grid payout-stat-grid">
@@ -535,6 +578,6 @@
     </main>
   </div>
 
-  <script src="/dashboard.js?v=6"></script>
+  <script src="/dashboard.js?v=8"></script>
 </body>
 </html>

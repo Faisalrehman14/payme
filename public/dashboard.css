@@ -1573,9 +1573,14 @@ tbody tr:last-child td {
   color: var(--dash-text);
 }
 
-.btn-sm {
-  padding: 8px 12px;
-  font-size: 13px;
+.txn-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#backToPayoutHistory {
+  margin-top: 12px;
 }
 
 .txn-panel {

@@ -304,32 +304,51 @@ function setView(view) {
   document.querySelectorAll(".view").forEach((el) => el.classList.add("hidden"));
   document.getElementById(`view-${view}`).classList.remove("hidden");
   document.querySelectorAll(".nav-item").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.view === view);
+    const isHistoryNav =
+      view === "history" &&
+      (btn.dataset.view === "history" || btn.id === "navPayouts");
+    if (btn.id === "navPayouts") {
+      btn.classList.toggle("active", view === "history" && historyTab === "payouts");
+    } else if (btn.dataset.view === "history") {
+      btn.classList.toggle("active", view === "history" && historyTab !== "payouts");
+    } else {
+      btn.classList.toggle("active", btn.dataset.view === view);
+    }
+    void isHistoryNav;
   });
   if (view === "monthly") loadMonthly();
   if (view === "checkout") renderCheckout();
   if (view === "settings") renderSettings();
   if (view === "payouts") loadPayouts();
+  if (view === "history") {
+    if (historyTab === "payouts") loadPayouts().then(() => renderHistoryView());
+    else renderHistoryView();
+  }
 }
 
 function syncPayoutNav() {
   const nav = document.getElementById("navPayouts");
-  if (!nav) return;
+  const payoutsTab = document.getElementById("historyPayoutsTab");
   const enabled = Boolean(dashboardData?.office?.payoutsEnabled);
-  nav.classList.toggle("hidden", !enabled);
+  if (nav) nav.classList.toggle("hidden", !enabled);
+  if (payoutsTab) payoutsTab.classList.toggle("hidden", !enabled);
   if (!enabled && getCurrentView() === "payouts") {
     setView("dashboard");
+  }
+  if (!enabled && historyTab === "payouts") {
+    historyTab = "payments";
+    renderHistoryView();
   }
 }
 
 function payoutStatusBadge(status) {
   const map = {
-    paid: { className: "paid", label: "completed" },
-    pending: { className: "pending", label: "pending" },
-    failed: { className: "expired", label: "failed" },
+    paid: { className: "paid", label: "Paid", icon: "✓" },
+    pending: { className: "pending", label: "Pending", icon: "•" },
+    failed: { className: "expired", label: "Failed", icon: "×" },
   };
-  const info = map[status] || { className: status, label: status };
-  return `<span class="badge ${info.className}">${info.label}</span>`;
+  const info = map[status] || { className: status, label: status, icon: "•" };
+  return `<span class="badge ${info.className}"><span class="badge-ico" aria-hidden="true">${info.icon}</span>${info.label}</span>`;
 }
 
 function renderPayouts() {
@@ -374,6 +393,7 @@ async function loadPayouts() {
   try {
     payoutData = await api("/api/dashboard/payouts");
     renderPayouts();
+    if (historyTab === "payouts") renderHistoryView();
   } catch (err) {
     const errEl = document.getElementById("payoutError");
     if (errEl) errEl.textContent = err.message;
@@ -513,6 +533,7 @@ function exportMonthlyCsv() {
 
 let historyStatusFilter = "all";
 let historyTab = "payments";
+let payoutStatusFilter = "all";
 
 function setText(id, value) {
   const el = document.getElementById(id);
@@ -520,6 +541,29 @@ function setText(id, value) {
 }
 
 function exportHistoryCsv() {
+  if (historyTab === "payouts") {
+    const payouts = payoutData?.payouts || [];
+    const lines = [
+      ["Amount", "Sats", "Status", "Date", "Error"].join(","),
+      ...payouts.map((p) =>
+        [
+          Number(p.amountUsd || 0).toFixed(2),
+          p.amountSats || 0,
+          p.status,
+          p.settledAt || p.createdAt || "",
+          (p.errorMessage || "").replace(/,/g, " "),
+        ].join(",")
+      ),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `globa-pay-payouts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    return;
+  }
+
   const lines = [
     ["Amount", "Method", "Status", "Date", "PaymentHash"].join(","),
     ...allPayments.map((p) =>
@@ -540,7 +584,111 @@ function exportHistoryCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+function payoutRow(p) {
+  const amount = Number(p.amountUsd) || 0;
+  return `
+    <tr>
+      <td>
+        <div class="txn-amount-cell">
+          <strong>${money(amount)}</strong>
+          <span>USD</span>
+        </div>
+      </td>
+      <td>${payoutStatusBadge(p.status)}${
+        p.errorMessage ? `<div class="sub">${p.errorMessage}</div>` : ""
+      }</td>
+      <td>Lightning payout</td>
+      <td class="txn-date">${Number(p.amountSats || 0).toLocaleString()} sats</td>
+      <td class="txn-date">${fmtTxnDate(p.settledAt || p.createdAt)}</td>
+    </tr>`;
+}
+
 function renderHistoryView() {
+  const paymentsPanel = document.getElementById("historyPaymentsPanel");
+  const payoutsPanel = document.getElementById("historyPayoutsPanel");
+  const paymentSummary = document.getElementById("historySummary");
+  const payoutSummary = document.getElementById("payoutSummary");
+  const withdrawBtn = document.getElementById("historyWithdrawBtn");
+  const searchInputEl = document.getElementById("historySearchInput");
+  const showPayouts = historyTab === "payouts";
+
+  document.querySelectorAll("[data-history-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.historyTab === historyTab);
+  });
+
+  if (paymentsPanel) paymentsPanel.classList.toggle("hidden", showPayouts);
+  if (payoutsPanel) payoutsPanel.classList.toggle("hidden", !showPayouts);
+  if (paymentSummary) paymentSummary.classList.toggle("hidden", showPayouts);
+  if (payoutSummary) payoutSummary.classList.toggle("hidden", !showPayouts);
+  if (withdrawBtn) {
+    withdrawBtn.classList.toggle(
+      "hidden",
+      !showPayouts || !dashboardData?.office?.payoutsEnabled
+    );
+  }
+  if (searchInputEl) {
+    searchInputEl.placeholder = showPayouts
+      ? "Filter payouts by amount or status…"
+      : "Filter by amount, status, or ID…";
+  }
+
+  // Keep Transactions nav highlighting correct while on payouts tab
+  document.querySelectorAll(".nav-item").forEach((btn) => {
+    if (btn.id === "navPayouts") {
+      btn.classList.toggle("active", getCurrentView() === "history" && showPayouts);
+    } else if (btn.dataset.view === "history") {
+      btn.classList.toggle("active", getCurrentView() === "history" && !showPayouts);
+    }
+  });
+
+  if (showPayouts) {
+    const payouts = payoutData?.payouts || [];
+    const paid = payouts.filter((p) => p.status === "paid").length;
+    const pending = payouts.filter((p) => p.status === "pending").length;
+    const failed = payouts.filter((p) => p.status === "failed").length;
+    setText("payoutCountAll", String(payouts.length));
+    setText("payoutCountPaid", String(paid));
+    setText("payoutCountPending", String(pending));
+    setText("payoutCountFailed", String(failed));
+
+    document.querySelectorAll("[data-payout-filter]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.payoutFilter === payoutStatusFilter);
+    });
+
+    let list = payouts;
+    if (payoutStatusFilter !== "all") {
+      list = list.filter((p) => p.status === payoutStatusFilter);
+    }
+
+    const q = (
+      document.getElementById("historySearchInput")?.value ||
+      document.getElementById("globalSearchInput")?.value ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+    if (q) {
+      list = list.filter((p) =>
+        [p.status, String(p.amountUsd || ""), String(p.amountSats || ""), p.errorMessage || ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+
+    const tbody = document.getElementById("historyPayoutsTable");
+    if (tbody) {
+      tbody.innerHTML =
+        list.map((p) => payoutRow(p)).join("") ||
+        `<tr><td colspan="5"><div class="empty-state">No payouts yet.</div></td></tr>`;
+    }
+    setText(
+      "payoutRangeLabel",
+      list.length ? `Showing ${list.length} items` : "Showing 0 items"
+    );
+    return;
+  }
+
   const paid = allPayments.filter((p) => p.status === "paid").length;
   const pending = allPayments.filter((p) => p.status === "pending").length;
   const expired = allPayments.filter((p) => p.status === "expired").length;
@@ -551,9 +699,6 @@ function renderHistoryView() {
 
   document.querySelectorAll("[data-history-filter]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.historyFilter === historyStatusFilter);
-  });
-  document.querySelectorAll("[data-history-tab]").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.historyTab === historyTab);
   });
 
   let list = allPayments;
@@ -616,18 +761,14 @@ function renderDashboard() {
   renderSettings();
   syncPayoutNav();
 
-  const payoutsTab = document.getElementById("historyPayoutsTab");
-  if (payoutsTab) {
-    payoutsTab.classList.toggle("hidden", !dashboardData?.office?.payoutsEnabled);
-  }
-
   if (dashboardData.payoutBalance) {
     payoutData = {
       balance: dashboardData.payoutBalance,
       payouts: payoutData?.payouts || [],
     };
-    if (getCurrentView() === "payouts") {
+    if (getCurrentView() === "payouts" || historyTab === "payouts") {
       renderPayouts();
+      if (historyTab === "payouts") renderHistoryView();
     }
   }
 }
@@ -816,10 +957,25 @@ document.querySelectorAll("[data-history-filter]").forEach((btn) => {
 });
 
 document.querySelectorAll("[data-history-tab]").forEach((btn) => {
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
     historyTab = btn.dataset.historyTab || "payments";
+    if (historyTab === "payouts") {
+      await loadPayouts();
+    }
+    if (getCurrentView() !== "history") setView("history");
+    else renderHistoryView();
+  });
+});
+
+document.querySelectorAll("[data-payout-filter]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    payoutStatusFilter = btn.dataset.payoutFilter || "all";
     renderHistoryView();
   });
+});
+
+document.getElementById("historyWithdrawBtn")?.addEventListener("click", () => {
+  setView("payouts");
 });
 
 ["historyShareBtn"].forEach((id) => {
@@ -873,11 +1029,23 @@ updatePasswordBtn.addEventListener("click", async () => {
 });
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
-  btn.addEventListener("click", () => setView(btn.dataset.view));
+  btn.addEventListener("click", () => {
+    if (btn.dataset.historyOpen) {
+      historyTab = btn.dataset.historyOpen;
+    } else if (btn.dataset.view === "history") {
+      historyTab = "payments";
+    }
+    setView(btn.dataset.view);
+  });
 });
 
 document.querySelectorAll("[data-view-jump]").forEach((btn) => {
-  btn.addEventListener("click", () => setView(btn.dataset.viewJump));
+  btn.addEventListener("click", () => {
+    if (btn.dataset.historyOpen) {
+      historyTab = btn.dataset.historyOpen;
+    }
+    setView(btn.dataset.viewJump);
+  });
 });
 
 const requestPayoutBtn = document.getElementById("requestPayoutBtn");
@@ -911,6 +1079,8 @@ requestPayoutBtn?.addEventListener("click", async () => {
     };
     if (dashboardData) dashboardData.payoutBalance = data.balance;
     renderPayouts();
+    historyTab = "payouts";
+    setView("history");
     await loadDashboard({ showLoading: false });
   } catch (err) {
     payoutError.textContent = err.message;
