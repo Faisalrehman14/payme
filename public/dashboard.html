@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/brand.css" />
-  <link rel="stylesheet" href="/dashboard.css?v=11" />
+  <link rel="stylesheet" href="/dashboard.css?v=12" />
 </head>
 <body>
   <section id="loginSection" class="login-shell">
@@ -373,6 +373,123 @@
           </div>
         </section>
 
+        <section class="view hidden" id="view-payment">
+          <div class="pd-crumb">
+            <button type="button" class="pd-back" id="paymentDetailBack">Transactions</button>
+          </div>
+
+          <div class="pd-hero">
+            <div class="pd-hero-main">
+              <h1 class="pd-amount" id="pdAmount">$0.00</h1>
+              <span id="pdStatusBadge"></span>
+            </div>
+            <div class="pd-hero-actions">
+              <button type="button" class="btn btn-outline btn-sm" id="pdCopyIdBtn">Copy ID</button>
+            </div>
+          </div>
+
+          <div class="pd-layout">
+            <div class="pd-main">
+              <section class="pd-section">
+                <div class="pd-section-head">
+                  <h2>Recent activity</h2>
+                </div>
+                <ol class="pd-timeline" id="pdTimeline"></ol>
+              </section>
+
+              <section class="pd-section">
+                <div class="pd-section-head">
+                  <h2>Payment summary</h2>
+                </div>
+                <div class="table-wrap pd-summary-table">
+                  <table class="txn-table">
+                    <thead>
+                      <tr>
+                        <th>Description</th>
+                        <th>Method</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <strong>Cash App payment</strong>
+                          <span class="pd-muted" id="pdSummaryId">—</span>
+                        </td>
+                        <td id="pdSummaryMethod">Cash App</td>
+                        <td id="pdSummaryAmount">$0.00</td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colspan="2"><strong>Total</strong></td>
+                        <td><strong id="pdSummaryTotal">$0.00</strong></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </section>
+
+              <section class="pd-section">
+                <div class="pd-section-head">
+                  <h2>Payment breakdown</h2>
+                </div>
+                <dl class="pd-breakdown" id="pdBreakdown"></dl>
+              </section>
+            </div>
+
+            <aside class="pd-aside">
+              <section class="pd-aside-block">
+                <h3>Details</h3>
+                <dl class="pd-meta">
+                  <div>
+                    <dt>Payment ID</dt>
+                    <dd>
+                      <code class="pd-id" id="pdPaymentId">—</code>
+                      <button type="button" class="pd-icon-btn" id="pdCopyHashBtn" title="Copy payment ID" aria-label="Copy payment ID">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      </button>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Payment method</dt>
+                    <dd class="pd-method-row">
+                      <span class="method-mark" aria-hidden="true">$</span>
+                      <span id="pdMethod">Cash App</span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd id="pdAsideStatus"></dd>
+                  </div>
+                  <div>
+                    <dt>Office</dt>
+                    <dd id="pdOffice">—</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section class="pd-aside-block">
+                <h3>Dates</h3>
+                <dl class="pd-meta">
+                  <div>
+                    <dt>Created</dt>
+                    <dd id="pdCreated">—</dd>
+                  </div>
+                  <div>
+                    <dt>Last updated</dt>
+                    <dd id="pdUpdated">—</dd>
+                  </div>
+                  <div>
+                    <dt>Expires</dt>
+                    <dd id="pdExpires">—</dd>
+                  </div>
+                </dl>
+              </section>
+            </aside>
+          </div>
+        </section>
+
         <section class="view hidden" id="view-payouts">
           <div class="page-header">
             <p class="breadcrumb">Transactions / Payouts</p>
@@ -659,6 +776,6 @@
     </main>
   </div>
 
-  <script src="/dashboard.js?v=11"></script>
+  <script src="/dashboard.js?v=12"></script>
 </body>
 </html>

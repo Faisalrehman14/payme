@@ -183,6 +183,18 @@ function shortId(p) {
   return raw.length > 14 ? `${raw.slice(0, 8)}…${raw.slice(-4)}` : raw;
 }
 
+function paymentKey(p) {
+  return p.id || p.paymentHash || "";
+}
+
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function fmtTxnDate(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString(undefined, {
@@ -194,11 +206,24 @@ function fmtTxnDate(iso) {
   });
 }
 
+function fmtDetailDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, {
+    timeZone: activeTimezone(),
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function paymentRow(p, { rich = false } = {}) {
   const amount = Number(p.amountUsd) || 0;
+  const key = escapeHtml(paymentKey(p));
   if (!rich) {
     return `
-    <tr>
+    <tr class="txn-row" data-payment-id="${key}">
       <td><span class="txn-amount">${money(amount)}</span></td>
       <td>${statusBadge(p.status)}</td>
       <td><span class="method-pill">${p.method || "Cash App"}</span></td>
@@ -206,7 +231,7 @@ function paymentRow(p, { rich = false } = {}) {
     </tr>`;
   }
   return `
-    <tr>
+    <tr class="txn-row" data-payment-id="${key}">
       <td>
         <div class="txn-amount-cell">
           <strong>${money(amount)}</strong>
@@ -219,7 +244,11 @@ function paymentRow(p, { rich = false } = {}) {
           <span>${p.method || "Cash App"}</span>
         </div>
       </td>
-      <td><code class="txn-id">${shortId(p)}</code></td>
+      <td>
+        <button type="button" class="txn-id-link" data-payment-id="${key}" title="View payment details">
+          <code class="txn-id">${escapeHtml(shortId(p))}</code>
+        </button>
+      </td>
       <td class="txn-date">${fmtTxnDate(p.settledAt || p.createdAt)}</td>
       <td>${statusBadge(p.status)}</td>
     </tr>`;
@@ -302,19 +331,22 @@ function renderCheckout() {
 
 function setView(view) {
   document.querySelectorAll(".view").forEach((el) => el.classList.add("hidden"));
-  document.getElementById(`view-${view}`).classList.remove("hidden");
+  const target = document.getElementById(`view-${view}`);
+  if (target) target.classList.remove("hidden");
   document.querySelectorAll(".nav-item").forEach((btn) => {
-    const isHistoryNav =
-      view === "history" &&
-      (btn.dataset.view === "history" || btn.id === "navPayouts");
     if (btn.id === "navPayouts") {
-      btn.classList.toggle("active", view === "history" && historyTab === "payouts");
+      btn.classList.toggle(
+        "active",
+        (view === "history" || view === "payment") && historyTab === "payouts"
+      );
     } else if (btn.dataset.view === "history") {
-      btn.classList.toggle("active", view === "history" && historyTab !== "payouts");
+      btn.classList.toggle(
+        "active",
+        (view === "history" || view === "payment") && historyTab !== "payouts"
+      );
     } else {
       btn.classList.toggle("active", btn.dataset.view === view);
     }
-    void isHistoryNav;
   });
   if (view === "monthly") loadMonthly();
   if (view === "checkout") renderCheckout();
@@ -323,6 +355,130 @@ function setView(view) {
   if (view === "history") {
     if (historyTab === "payouts") loadPayouts().then(() => renderHistoryView());
     else renderHistoryView();
+  }
+}
+
+let selectedPaymentId = null;
+
+function findPaymentByKey(key) {
+  if (!key) return null;
+  return (
+    allPayments.find((p) => p.id === key || p.paymentHash === key) || null
+  );
+}
+
+function paymentTimeline(p) {
+  const items = [
+    {
+      tone: "neutral",
+      title: "Payment started",
+      detail: "Customer opened Cash App checkout",
+      at: p.createdAt,
+    },
+  ];
+  if (p.status === "paid") {
+    items.push({
+      tone: "success",
+      title: `Payment using ${p.method || "Cash App"} succeeded`,
+      detail: `${money(p.amountUsd)} received`,
+      at: p.settledAt || p.createdAt,
+    });
+  } else if (p.status === "expired") {
+    items.push({
+      tone: "muted",
+      title: "Payment expired",
+      detail: "Invoice timed out before settlement",
+      at: p.expiresAt || p.createdAt,
+    });
+  } else {
+    items.push({
+      tone: "pending",
+      title: "Awaiting payment",
+      detail: "Waiting for the customer to complete Cash App Pay",
+      at: p.createdAt,
+    });
+  }
+  return items.reverse();
+}
+
+function renderPaymentDetail(p) {
+  if (!p) return;
+  selectedPaymentId = paymentKey(p);
+  const amount = money(p.amountUsd);
+  const fullId = p.paymentHash || p.id || "—";
+
+  setText("pdAmount", amount);
+  const badgeHost = document.getElementById("pdStatusBadge");
+  if (badgeHost) badgeHost.innerHTML = statusBadge(p.status);
+  const asideStatus = document.getElementById("pdAsideStatus");
+  if (asideStatus) asideStatus.innerHTML = statusBadge(p.status);
+
+  setText("pdSummaryId", shortId(p));
+  setText("pdSummaryMethod", p.method || "Cash App");
+  setText("pdSummaryAmount", amount);
+  setText("pdSummaryTotal", amount);
+  setText("pdPaymentId", fullId.length > 28 ? `${fullId.slice(0, 18)}…${fullId.slice(-6)}` : fullId);
+  const idEl = document.getElementById("pdPaymentId");
+  if (idEl) idEl.title = fullId;
+  setText("pdMethod", p.method || "Cash App");
+  setText("pdOffice", p.officeName || dashboardData?.office?.name || "—");
+  setText("pdCreated", fmtDetailDate(p.createdAt));
+  setText("pdUpdated", fmtDetailDate(p.settledAt || p.createdAt));
+  setText("pdExpires", fmtDetailDate(p.expiresAt));
+
+  const breakdown = document.getElementById("pdBreakdown");
+  if (breakdown) {
+    const sats = Number(p.amountSats) || 0;
+    breakdown.innerHTML = `
+      <div><dt>Gross amount</dt><dd>${amount}</dd></div>
+      <div><dt>Lightning amount</dt><dd>${sats ? `${sats.toLocaleString()} sats` : "—"}</dd></div>
+      <div><dt>Payment method</dt><dd>${escapeHtml(p.method || "Cash App")}</dd></div>
+      <div class="pd-breakdown-total"><dt>Net</dt><dd>${amount}</dd></div>`;
+  }
+
+  const timeline = document.getElementById("pdTimeline");
+  if (timeline) {
+    timeline.innerHTML = paymentTimeline(p)
+      .map(
+        (item) => `
+      <li class="pd-timeline-item tone-${item.tone}">
+        <span class="pd-timeline-dot" aria-hidden="true"></span>
+        <div class="pd-timeline-body">
+          <div class="pd-timeline-top">
+            <strong>${escapeHtml(item.title)}</strong>
+            <time>${fmtDetailDate(item.at)}</time>
+          </div>
+          <p>${escapeHtml(item.detail)}</p>
+        </div>
+      </li>`
+      )
+      .join("");
+  }
+}
+
+function openPaymentDetail(key) {
+  const payment = findPaymentByKey(key);
+  if (!payment) return;
+  renderPaymentDetail(payment);
+  setView("payment");
+}
+
+async function copyPaymentId() {
+  const payment = findPaymentByKey(selectedPaymentId);
+  const value = payment?.paymentHash || payment?.id || selectedPaymentId;
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    const btn = document.getElementById("pdCopyIdBtn");
+    if (btn) {
+      const prev = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => {
+        btn.textContent = prev;
+      }, 1600);
+    }
+  } catch {
+    /* ignore */
   }
 }
 
@@ -867,7 +1023,7 @@ function renderHomeOverview() {
       recent
         .map(
           (p) => `
-        <div class="home-recent-row">
+        <div class="home-recent-row is-clickable" data-payment-id="${escapeHtml(paymentKey(p))}" role="button" tabindex="0">
           <div>
             <strong>${money(p.amountUsd)}</strong>
             <span>${fmtTxnDate(p.settledAt || p.createdAt)}</span>
@@ -1304,6 +1460,31 @@ document.querySelectorAll("[data-history-filter]").forEach((btn) => {
     historyStatusFilter = btn.dataset.historyFilter || "all";
     renderHistoryView();
   });
+});
+
+document.getElementById("paymentDetailBack")?.addEventListener("click", () => {
+  setView("history");
+});
+document.getElementById("pdCopyIdBtn")?.addEventListener("click", copyPaymentId);
+document.getElementById("pdCopyHashBtn")?.addEventListener("click", copyPaymentId);
+
+document.getElementById("historyPaymentsTable")?.addEventListener("click", (e) => {
+  const link = e.target.closest("[data-payment-id]");
+  if (!link || !link.classList.contains("txn-id-link")) return;
+  e.preventDefault();
+  openPaymentDetail(link.dataset.paymentId);
+});
+
+document.getElementById("todayPaymentsTable")?.addEventListener("click", (e) => {
+  const row = e.target.closest("tr[data-payment-id]");
+  if (!row) return;
+  openPaymentDetail(row.dataset.paymentId);
+});
+
+document.getElementById("homeRecentList")?.addEventListener("click", (e) => {
+  const row = e.target.closest("[data-payment-id]");
+  if (!row) return;
+  openPaymentDetail(row.dataset.paymentId);
 });
 
 document.querySelectorAll("[data-history-tab]").forEach((btn) => {
