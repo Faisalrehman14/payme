@@ -4,8 +4,9 @@ const { requireAuth, requireAdmin, reqBaseUrl } = require("../middleware/auth");
 const { officePublicView, paymentView, payoutView } = require("../services/views");
 const { logAudit } = require("../services/audit");
 const { syncOfficePayments } = require("../services/payment-sync");
-const { parseNwcUrl, testPaymentProvider } = require("../services/nwc");
+const { parseNwcUrl, testPaymentProvider, getPlatformWalletBalance } = require("../services/nwc");
 const { getSyncStatus } = require("../worker/sync-worker");
+const { getLedgerBalance } = require("../services/ledger-sync");
 
 const router = express.Router();
 
@@ -25,6 +26,11 @@ router.get("/overview", requireAuth, requireAdmin, async (_req, res) => {
 
     const nwc = parseNwcUrl(process.env.NWC_URL || "");
     const paymentProvider = await testPaymentProvider();
+    const wallet = await getPlatformWalletBalance().catch((err) => ({
+      ok: false,
+      balanceSats: null,
+      error: err.message,
+    }));
     const database = await db.healthCheck();
     const sync = getSyncStatus();
 
@@ -44,6 +50,9 @@ router.get("/overview", requireAuth, requireAdmin, async (_req, res) => {
         paymentProvider: paymentProvider.provider,
         paymentProviderOk: paymentProvider.ok,
         paymentProviderError: paymentProvider.error,
+        walletOk: wallet.ok,
+        walletBalanceSats: wallet.balanceSats,
+        walletError: wallet.error || null,
         database,
         sync,
       },
@@ -68,7 +77,9 @@ router.get("/offices", requireAuth, requireAdmin, async (req, res) => {
         payLink: `${reqBaseUrl(req)}/pay/${office.slug}`,
         staff: staffByOffice[office.id] || [],
         stats: await db.getOfficeStats(office.id),
-        payoutBalance: await db.getOfficePayoutBalance(office.id),
+        payoutBalance: await getLedgerBalance(office.id).catch(() =>
+          db.getOfficePayoutBalance(office.id)
+        ),
       }))
     );
     res.json({ offices: result });

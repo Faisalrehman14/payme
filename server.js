@@ -11,6 +11,7 @@ const { createApp } = require("./src/app");
 const { PORT } = require("./src/config");
 const { parseNwcUrl } = require("./src/services/nwc");
 const { startSyncWorker } = require("./src/worker/sync-worker");
+const { syncAllLedgers } = require("./src/services/ledger-sync");
 
 async function start() {
   try {
@@ -18,6 +19,13 @@ async function start() {
     const adminUser = process.env.ADMIN_USERNAME || "admin";
     const adminPass = process.env.ADMIN_PASSWORD || "admin123";
     await db.seedAdmin(adminUser, adminPass);
+
+    try {
+      const ledger = await syncAllLedgers();
+      console.log(`? Ledger synced for ${ledger.offices} office(s)`);
+    } catch (err) {
+      console.warn("Ledger sync warning:", err.message);
+    }
 
     if (
       (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT) &&

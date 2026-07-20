@@ -72,6 +72,23 @@ CREATE TABLE IF NOT EXISTS payouts (
 CREATE INDEX IF NOT EXISTS idx_payouts_office_created ON payouts(office_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payouts_status ON payouts(status);
 
+CREATE TABLE IF NOT EXISTS ledger_entries (
+  id UUID PRIMARY KEY,
+  office_id UUID NOT NULL REFERENCES offices(id) ON DELETE CASCADE,
+  entry_type TEXT NOT NULL CHECK (entry_type IN ('payment_credit', 'payout_hold', 'payout_debit')),
+  amount_usd NUMERIC(12, 2) NOT NULL CHECK (amount_usd > 0),
+  amount_sats INTEGER,
+  ref_type TEXT NOT NULL,
+  ref_id TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_office_type_ref
+  ON ledger_entries(office_id, entry_type, ref_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_office_created ON ledger_entries(office_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID PRIMARY KEY,
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -153,6 +170,22 @@ function mapPayout(row) {
     errorMessage: row.error_message || null,
     createdAt: row.created_at.toISOString(),
     settledAt: row.settled_at ? row.settled_at.toISOString() : null,
+  };
+}
+
+function mapLedgerEntry(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    officeId: row.office_id,
+    entryType: row.entry_type,
+    amountUsd: Number(row.amount_usd),
+    amountSats: row.amount_sats != null ? Number(row.amount_sats) : null,
+    refType: row.ref_type,
+    refId: row.ref_id,
+    idempotencyKey: row.idempotency_key,
+    metadata: row.metadata || null,
+    createdAt: row.created_at.toISOString(),
   };
 }
 
@@ -506,6 +539,7 @@ function buildPayoutBalance({ totalEarnedUsd, totalWithdrawnUsd, pendingUsd, com
     totalWithdrawnUsd: withdrawn,
     pendingUsd: pending,
     availableUsd,
+    source: "ledger",
   };
 }
 
@@ -517,46 +551,120 @@ async function getOfficePayoutBalance(officeId, client = null) {
   );
   if (!officeRes.rows.length) throw new Error("Office not found");
 
-  const [paidRes, payoutRes] = await Promise.all([
-    q(
-      `SELECT COALESCE(SUM(amount_usd), 0)::float AS total
-       FROM payments WHERE office_id = $1 AND status = 'paid'`,
-      [officeId]
-    ),
-    q(
-      `SELECT
-         COALESCE(SUM(amount_usd) FILTER (WHERE status = 'paid'), 0)::float AS withdrawn,
-         COALESCE(SUM(amount_usd) FILTER (WHERE status = 'pending'), 0)::float AS pending
-       FROM payouts WHERE office_id = $1`,
-      [officeId]
-    ),
-  ]);
+  const { rows } = await q(
+    `SELECT entry_type,
+            COALESCE(SUM(amount_usd), 0)::float AS total
+     FROM ledger_entries
+     WHERE office_id = $1
+     GROUP BY entry_type`,
+    [officeId]
+  );
+
+  const byType = Object.fromEntries(rows.map((r) => [r.entry_type, Number(r.total) || 0]));
+
+  // Fallback for offices not yet ledger-synced
+  if (!rows.length) {
+    const [paidRes, payoutRes] = await Promise.all([
+      q(
+        `SELECT COALESCE(SUM(amount_usd), 0)::float AS total
+         FROM payments WHERE office_id = $1 AND status = 'paid'`,
+        [officeId]
+      ),
+      q(
+        `SELECT
+           COALESCE(SUM(amount_usd) FILTER (WHERE status = 'paid'), 0)::float AS withdrawn,
+           COALESCE(SUM(amount_usd) FILTER (WHERE status = 'pending'), 0)::float AS pending
+         FROM payouts WHERE office_id = $1`,
+        [officeId]
+      ),
+    ]);
+    return {
+      ...buildPayoutBalance({
+        totalEarnedUsd: Number(paidRes.rows[0]?.total || 0),
+        totalWithdrawnUsd: Number(payoutRes.rows[0]?.withdrawn || 0),
+        pendingUsd: Number(payoutRes.rows[0]?.pending || 0),
+        commissionPercent: Number(officeRes.rows[0].commission_percent) || 0,
+      }),
+      source: "legacy",
+    };
+  }
 
   return buildPayoutBalance({
-    totalEarnedUsd: Number(paidRes.rows[0]?.total || 0),
-    totalWithdrawnUsd: Number(payoutRes.rows[0]?.withdrawn || 0),
-    pendingUsd: Number(payoutRes.rows[0]?.pending || 0),
+    totalEarnedUsd: byType.payment_credit || 0,
+    totalWithdrawnUsd: byType.payout_debit || 0,
+    pendingUsd: byType.payout_hold || 0,
     commissionPercent: Number(officeRes.rows[0].commission_percent) || 0,
   });
+}
+
+async function upsertLedgerEntry(entry, client = null) {
+  const q = client ? client.query.bind(client) : pool.query.bind(pool);
+  const id = crypto.randomUUID();
+  const { rows } = await q(
+    `INSERT INTO ledger_entries (
+       id, office_id, entry_type, amount_usd, amount_sats,
+       ref_type, ref_id, idempotency_key, metadata
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     ON CONFLICT (idempotency_key) DO UPDATE SET
+       amount_usd = EXCLUDED.amount_usd,
+       amount_sats = EXCLUDED.amount_sats,
+       metadata = EXCLUDED.metadata
+     RETURNING *`,
+    [
+      id,
+      entry.officeId,
+      entry.entryType,
+      roundUsd(entry.amountUsd),
+      entry.amountSats ?? null,
+      entry.refType,
+      entry.refId,
+      entry.idempotencyKey,
+      entry.metadata ? JSON.stringify(entry.metadata) : null,
+    ]
+  );
+  return mapLedgerEntry(rows[0]);
+}
+
+async function deleteLedgerEntryByKey(idempotencyKey, client = null) {
+  const q = client ? client.query.bind(client) : pool.query.bind(pool);
+  await q("DELETE FROM ledger_entries WHERE idempotency_key = $1", [idempotencyKey]);
+  return true;
+}
+
+async function listLedgerEntriesForOffice(officeId, limit = 5000) {
+  const { rows } = await pool.query(
+    `SELECT * FROM ledger_entries
+     WHERE office_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [officeId, limit]
+  );
+  return rows.map(mapLedgerEntry);
 }
 
 async function failStalePendingPayouts(officeId, olderThanMs, client = null) {
   const q = client ? client.query.bind(client) : pool.query.bind(pool);
   const cutoff = new Date(Date.now() - olderThanMs);
-  await q(
+  const { rows } = await q(
     `UPDATE payouts
      SET status = 'failed',
          error_message = COALESCE(error_message, 'Timed out — please try again')
      WHERE office_id = $1
        AND status = 'pending'
-       AND created_at < $2`,
+       AND created_at < $2
+     RETURNING id`,
     [officeId, cutoff.toISOString()]
   );
+  for (const row of rows) {
+    await q("DELETE FROM ledger_entries WHERE idempotency_key = $1", [
+      `payout_hold:${row.id}`,
+    ]);
+  }
 }
 
 /**
  * Atomically reserve a payout against available balance (office row locked).
- * Prevents concurrent over-withdrawal.
+ * Writes payout_hold ledger entry in the same transaction.
  */
 async function createPayoutIfSufficient(record, { stalePendingMs = 10 * 60 * 1000 } = {}) {
   const client = await pool.connect();
@@ -600,6 +708,20 @@ async function createPayoutIfSufficient(record, { stalePendingMs = 10 * 60 * 100
         record.btcPrice ?? null,
       ]
     );
+
+    await upsertLedgerEntry(
+      {
+        officeId: record.officeId,
+        entryType: "payout_hold",
+        amountUsd,
+        amountSats: record.amountSats,
+        refType: "payout",
+        refId: id,
+        idempotencyKey: `payout_hold:${id}`,
+      },
+      client
+    );
+
     await client.query("COMMIT");
     return { payout: mapPayout(rows[0]), balanceBefore: balance };
   } catch (err) {
@@ -677,7 +799,26 @@ async function updatePayout(id, fields) {
     `UPDATE payouts SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`,
     values
   );
-  return mapPayout(rows[0]);
+  const payout = mapPayout(rows[0]);
+  if (!payout) return null;
+
+  if (fields.status === "paid") {
+    await deleteLedgerEntryByKey(`payout_hold:${payout.id}`);
+    await upsertLedgerEntry({
+      officeId: payout.officeId,
+      entryType: "payout_debit",
+      amountUsd: payout.amountUsd,
+      amountSats: payout.amountSats,
+      refType: "payout",
+      refId: payout.id,
+      idempotencyKey: `payout_debit:${payout.id}`,
+    });
+  } else if (fields.status === "failed") {
+    await deleteLedgerEntryByKey(`payout_hold:${payout.id}`);
+    await deleteLedgerEntryByKey(`payout_debit:${payout.id}`);
+  }
+
+  return payout;
 }
 
 async function getPayoutByPaymentHash(paymentHash) {
@@ -912,7 +1053,20 @@ async function updatePaymentByHash(paymentHash, patch) {
     `UPDATE payments SET ${fields.join(", ")} WHERE payment_hash = $${idx} RETURNING *`,
     values
   );
-  return mapPayment(rows[0]);
+  const payment = mapPayment(rows[0]);
+  if (payment?.status === "paid") {
+    await upsertLedgerEntry({
+      officeId: payment.officeId,
+      entryType: "payment_credit",
+      amountUsd: payment.amountUsd,
+      amountSats: payment.amountSats,
+      refType: "payment",
+      refId: payment.id,
+      idempotencyKey: `payment_credit:${payment.id}`,
+      metadata: { paymentHash: payment.paymentHash },
+    });
+  }
+  return payment;
 }
 
 async function getPaymentByHash(paymentHash) {
@@ -1079,6 +1233,9 @@ module.exports = {
   getPayoutByPaymentHash,
   listPayoutsForOffice,
   listAllPayouts,
+  upsertLedgerEntry,
+  deleteLedgerEntryByKey,
+  listLedgerEntriesForOffice,
   createAuditLog,
   listAuditLogs,
   getPlatformSettings,

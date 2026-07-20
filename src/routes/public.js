@@ -10,6 +10,7 @@ const {
   lookupInvoiceSettled,
   testPaymentProvider,
   getAlbyTokenDiagnostics,
+  getPlatformWalletBalance,
 } = require("../services/nwc");
 const { normalizeOfficeSlug } = require("../utils/office-slug");
 const { syncPaymentRecord } = require("../services/payment-sync");
@@ -50,6 +51,11 @@ router.get("/health", async (_req, res) => {
   const nwc = parseNwcUrl(process.env.NWC_URL || "");
   const tokenDiag = getAlbyTokenDiagnostics();
   const provider = await testPaymentProvider();
+  const wallet = await getPlatformWalletBalance().catch((err) => ({
+    ok: false,
+    balanceSats: null,
+    error: err.message,
+  }));
   const database = await db.healthCheck();
   const sync = getSyncStatus();
 
@@ -65,6 +71,9 @@ router.get("/health", async (_req, res) => {
     paymentProviderError: provider.ok ? null : provider.error,
     lightningAddress: provider.lightningAddress || null,
     warning: provider.warning || null,
+    walletOk: wallet.ok,
+    walletBalanceSats: wallet.balanceSats,
+    walletError: wallet.error || null,
     database,
     sync,
   });

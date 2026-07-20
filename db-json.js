@@ -10,6 +10,7 @@ const DEFAULT_DB = {
   users: [],
   payments: [],
   payouts: [],
+  ledgerEntries: [],
   sessions: [],
   auditLogs: [],
   platformSettings: null,
@@ -288,6 +289,7 @@ function buildPayoutBalance({ totalEarnedUsd, totalWithdrawnUsd, pendingUsd, com
     totalWithdrawnUsd: withdrawn,
     pendingUsd: pending,
     availableUsd,
+    source: "ledger",
   };
 }
 
@@ -311,10 +313,65 @@ async function withOfficePayoutLock(officeId, fn) {
   }
 }
 
+async function upsertLedgerEntry(entry) {
+  let saved = null;
+  updateDb((d) => {
+    if (!d.ledgerEntries) d.ledgerEntries = [];
+    const idx = d.ledgerEntries.findIndex((e) => e.idempotencyKey === entry.idempotencyKey);
+    const row = {
+      id: idx >= 0 ? d.ledgerEntries[idx].id : newId(),
+      officeId: entry.officeId,
+      entryType: entry.entryType,
+      amountUsd: roundUsd(entry.amountUsd),
+      amountSats: entry.amountSats ?? null,
+      refType: entry.refType,
+      refId: entry.refId,
+      idempotencyKey: entry.idempotencyKey,
+      metadata: entry.metadata || null,
+      createdAt: idx >= 0 ? d.ledgerEntries[idx].createdAt : new Date().toISOString(),
+    };
+    if (idx >= 0) d.ledgerEntries[idx] = row;
+    else d.ledgerEntries.unshift(row);
+    saved = row;
+  });
+  return saved;
+}
+
+async function deleteLedgerEntryByKey(idempotencyKey) {
+  updateDb((d) => {
+    if (!d.ledgerEntries) d.ledgerEntries = [];
+    d.ledgerEntries = d.ledgerEntries.filter((e) => e.idempotencyKey !== idempotencyKey);
+  });
+  return true;
+}
+
+async function listLedgerEntriesForOffice(officeId, limit = 5000) {
+  const db = readDb();
+  return (db.ledgerEntries || [])
+    .filter((e) => e.officeId === officeId)
+    .slice(0, limit);
+}
+
 async function getOfficePayoutBalance(officeId) {
   const db = readDb();
   const office = db.offices.find((o) => o.id === officeId);
   if (!office) throw new Error("Office not found");
+
+  const entries = (db.ledgerEntries || []).filter((e) => e.officeId === officeId);
+  if (entries.length) {
+    return buildPayoutBalance({
+      totalEarnedUsd: entries
+        .filter((e) => e.entryType === "payment_credit")
+        .reduce((s, e) => s + (Number(e.amountUsd) || 0), 0),
+      totalWithdrawnUsd: entries
+        .filter((e) => e.entryType === "payout_debit")
+        .reduce((s, e) => s + (Number(e.amountUsd) || 0), 0),
+      pendingUsd: entries
+        .filter((e) => e.entryType === "payout_hold")
+        .reduce((s, e) => s + (Number(e.amountUsd) || 0), 0),
+      commissionPercent: office.commissionPercent || 0,
+    });
+  }
 
   const payments = (db.payments || []).filter(
     (p) => p.officeId === officeId && p.status === "paid"
@@ -329,16 +386,20 @@ async function getOfficePayoutBalance(officeId) {
     .filter((p) => p.status === "pending")
     .reduce((sum, p) => sum + (Number(p.amountUsd) || 0), 0);
 
-  return buildPayoutBalance({
-    totalEarnedUsd,
-    totalWithdrawnUsd,
-    pendingUsd,
-    commissionPercent: office.commissionPercent || 0,
-  });
+  return {
+    ...buildPayoutBalance({
+      totalEarnedUsd,
+      totalWithdrawnUsd,
+      pendingUsd,
+      commissionPercent: office.commissionPercent || 0,
+    }),
+    source: "legacy",
+  };
 }
 
 async function failStalePendingPayouts(officeId, olderThanMs) {
   const cutoff = Date.now() - olderThanMs;
+  const failedIds = [];
   updateDb((d) => {
     if (!d.payouts) d.payouts = [];
     for (const p of d.payouts) {
@@ -349,8 +410,13 @@ async function failStalePendingPayouts(officeId, olderThanMs) {
       ) {
         p.status = "failed";
         p.errorMessage = p.errorMessage || "Timed out — please try again";
+        failedIds.push(p.id);
       }
     }
+    if (!d.ledgerEntries) d.ledgerEntries = [];
+    d.ledgerEntries = d.ledgerEntries.filter(
+      (e) => !(e.entryType === "payout_hold" && failedIds.includes(e.refId))
+    );
   });
 }
 
@@ -372,6 +438,15 @@ async function createPayoutIfSufficient(record, { stalePendingMs = 10 * 60 * 100
     }
 
     const payout = await createPayout({ ...record, amountUsd, status: "pending" });
+    await upsertLedgerEntry({
+      officeId: record.officeId,
+      entryType: "payout_hold",
+      amountUsd,
+      amountSats: record.amountSats,
+      refType: "payout",
+      refId: payout.id,
+      idempotencyKey: `payout_hold:${payout.id}`,
+    });
     return { payout, balanceBefore: balance };
   });
 }
@@ -414,6 +489,23 @@ async function updatePayout(id, fields) {
     updated = d.payouts[idx];
   });
   if (!updated) throw new Error("Payout not found");
+
+  if (fields.status === "paid") {
+    await deleteLedgerEntryByKey(`payout_hold:${updated.id}`);
+    await upsertLedgerEntry({
+      officeId: updated.officeId,
+      entryType: "payout_debit",
+      amountUsd: updated.amountUsd,
+      amountSats: updated.amountSats,
+      refType: "payout",
+      refId: updated.id,
+      idempotencyKey: `payout_debit:${updated.id}`,
+    });
+  } else if (fields.status === "failed") {
+    await deleteLedgerEntryByKey(`payout_hold:${updated.id}`);
+    await deleteLedgerEntryByKey(`payout_debit:${updated.id}`);
+  }
+
   return updated;
 }
 
@@ -597,6 +689,18 @@ async function updatePaymentByHash(paymentHash, patch) {
     db.payments[idx] = { ...db.payments[idx], ...patch };
     updated = db.payments[idx];
   });
+  if (updated?.status === "paid") {
+    await upsertLedgerEntry({
+      officeId: updated.officeId,
+      entryType: "payment_credit",
+      amountUsd: updated.amountUsd,
+      amountSats: updated.amountSats,
+      refType: "payment",
+      refId: updated.id,
+      idempotencyKey: `payment_credit:${updated.id}`,
+      metadata: { paymentHash: updated.paymentHash },
+    });
+  }
   return updated;
 }
 
@@ -654,6 +758,7 @@ async function deleteOffice(officeId) {
     d.users = d.users.filter((u) => u.officeId !== officeId);
     d.payments = d.payments.filter((p) => p.officeId !== officeId);
     d.payouts = (d.payouts || []).filter((p) => p.officeId !== officeId);
+    d.ledgerEntries = (d.ledgerEntries || []).filter((e) => e.officeId !== officeId);
     d.offices = d.offices.filter((o) => o.id !== officeId);
   });
   return true;
@@ -709,6 +814,9 @@ module.exports = {
   getPayoutByPaymentHash,
   listPayoutsForOffice,
   listAllPayouts,
+  upsertLedgerEntry,
+  deleteLedgerEntryByKey,
+  listLedgerEntriesForOffice,
   createAuditLog,
   listAuditLogs,
   getPlatformSettings,

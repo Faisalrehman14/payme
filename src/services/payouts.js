@@ -1,6 +1,7 @@
 const { decodeInvoice } = require("@getalby/lightning-tools");
 const db = require("../../db");
-const { payBolt11Invoice, hasCredentials } = require("./nwc");
+const { payBolt11Invoice, hasCredentials, getPlatformWalletBalance } = require("./nwc");
+const { getLedgerBalance } = require("./ledger-sync");
 
 const MIN_PAYOUT_USD = 1;
 const STALE_PENDING_MS = 10 * 60 * 1000;
@@ -37,7 +38,6 @@ function availableSatsFromBalance(availableUsd, btcPrice) {
 function isInvoiceExpired(decoded) {
   if (!decoded?.timestamp || decoded.expiry == null) return false;
   const expiresAtMs = (Number(decoded.timestamp) + Number(decoded.expiry)) * 1000;
-  // 30s clock skew buffer
   return Date.now() >= expiresAtMs - 30_000;
 }
 
@@ -52,7 +52,7 @@ async function ensurePayoutsEnabled(officeId) {
 
 async function getPayoutBalance(officeId) {
   await db.failStalePendingPayouts(officeId, STALE_PENDING_MS);
-  return db.getOfficePayoutBalance(officeId);
+  return getLedgerBalance(officeId);
 }
 
 async function listOfficePayouts(officeId, limit = 100) {
@@ -62,8 +62,7 @@ async function listOfficePayouts(officeId, limit = 100) {
 
 /**
  * Office requests withdrawal by pasting a Lightning invoice.
- * Amount is taken from the invoice; deducted from available office balance on success.
- * Available = (earned × (100 − commission%)) − withdrawn − pending.
+ * Amount comes from the invoice; reserved on ledger, then paid from platform wallet.
  */
 async function requestOfficePayout({ officeId, userId, invoice }) {
   if (!hasCredentials()) {
@@ -101,12 +100,19 @@ async function requestOfficePayout({ officeId, userId, invoice }) {
     throw new Error(`Minimum payout is $${MIN_PAYOUT_USD.toFixed(2)}`);
   }
 
-  // Pre-check (UX). Authoritative check is inside createPayoutIfSufficient.
   const preview = await getPayoutBalance(officeId);
   const maxSats = availableSatsFromBalance(preview.availableUsd, btcPrice);
   if (amountSats > maxSats || amountUsd > preview.availableUsd + 0.009) {
     throw new Error(
       `Insufficient balance. Available: $${preview.availableUsd.toFixed(2)} (max ~${maxSats.toLocaleString()} sats). Invoice is for $${amountUsd.toFixed(2)}.`
+    );
+  }
+
+  // Platform wallet liquidity ≠ office ledger balance
+  const wallet = await getPlatformWalletBalance();
+  if (wallet.ok && wallet.balanceSats != null && amountSats > wallet.balanceSats) {
+    throw new Error(
+      `Platform wallet liquidity too low for this payout (${wallet.balanceSats.toLocaleString()} sats available). Try a smaller amount or contact admin.`
     );
   }
 
@@ -135,7 +141,7 @@ async function requestOfficePayout({ officeId, userId, invoice }) {
     });
     return {
       payout: updated,
-      balance: await db.getOfficePayoutBalance(officeId),
+      balance: await getLedgerBalance(officeId),
     };
   } catch (err) {
     await db.updatePayout(payout.id, {

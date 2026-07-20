@@ -171,6 +171,13 @@ function renderOverview(overview) {
   systemStats.innerHTML = `
     <div class="stat-card"><div class="stat-label">Payments</div><div class="stat-value">${overview.health.paymentProviderOk ? "Online" : "Offline"}</div></div>
     <div class="stat-card"><div class="stat-label">Provider</div><div class="stat-value">${overview.health.paymentProvider || "—"}</div></div>
+    <div class="stat-card"><div class="stat-label">Wallet Liquidity</div><div class="stat-value">${
+      overview.health.walletBalanceSats != null
+        ? `${Number(overview.health.walletBalanceSats).toLocaleString()} sats`
+        : overview.health.walletOk === false
+          ? "Offline"
+          : "—"
+    }</div></div>
     <div class="stat-card"><div class="stat-label">Database</div><div class="stat-value">${overview.health.database?.ok ? "OK" : "Error"}</div></div>
     <div class="stat-card"><div class="stat-label">Auto Sync</div><div class="stat-value">${overview.health.sync?.lastSyncAt ? "Active" : "Starting"}</div></div>
   `;

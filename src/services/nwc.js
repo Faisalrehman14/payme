@@ -430,6 +430,61 @@ async function payBolt11Invoice(invoice) {
   }
 }
 
+/**
+ * Platform hot-wallet balance (liquidity). This is NOT office ledger balance.
+ */
+async function getPlatformWalletBalance() {
+  if (getAlbyToken()) {
+    try {
+      const data = await albyFetch("/balance");
+      const balanceSats = Number(
+        data.balance ?? data.balance_sats ?? data.total_balance ?? data.amount ?? 0
+      );
+      return {
+        ok: true,
+        provider: "alby",
+        balanceSats: Number.isFinite(balanceSats) ? Math.round(balanceSats) : null,
+        currency: data.currency || "BTC",
+        error: null,
+      };
+    } catch (err) {
+      if (!getNwcUrl()) {
+        return { ok: false, provider: "alby", balanceSats: null, error: err.message };
+      }
+    }
+  }
+
+  if (getNwcUrl()) {
+    const client = createNwcClient();
+    try {
+      const result = await withTimeout(
+        client.getBalance(),
+        NWC_TIMEOUT_MS,
+        "Wallet balance check timed out"
+      );
+      const msats = Number(result.balance ?? result.balance_msat ?? 0);
+      return {
+        ok: true,
+        provider: "nwc",
+        balanceSats: Number.isFinite(msats) ? Math.round(msats / 1000) : null,
+        currency: "BTC",
+        error: null,
+      };
+    } catch (err) {
+      return { ok: false, provider: "nwc", balanceSats: null, error: err.message };
+    } finally {
+      client.close();
+    }
+  }
+
+  return {
+    ok: false,
+    provider: null,
+    balanceSats: null,
+    error: "No wallet provider configured",
+  };
+}
+
 async function lookupInvoiceSettled(paymentHash, providerHint) {
   // LNURL invoices still settle on Alby — check Alby API first when token exists
   if (providerHint === "lnurl" && getAlbyToken()) {
@@ -553,6 +608,7 @@ module.exports = {
   albyFetch,
   createInvoicePayment,
   payBolt11Invoice,
+  getPlatformWalletBalance,
   lookupInvoiceSettled,
   testPaymentProvider,
   getAlbyTokenDiagnostics,
