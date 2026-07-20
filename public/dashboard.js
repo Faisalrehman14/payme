@@ -123,6 +123,18 @@ function initialsFromName(username) {
   return s.slice(0, 2).toUpperCase();
 }
 
+function badgeIcon(kind) {
+  const common =
+    'class="badge-ico" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  if (kind === "paid") {
+    return `<svg ${common}><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg>`;
+  }
+  if (kind === "pending") {
+    return `<svg ${common}><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.2L10 10"/></svg>`;
+  }
+  return `<svg ${common}><path d="M5 5l6 6M11 5l-6 6"/></svg>`;
+}
+
 function statusBadge(status) {
   const key = status === "paid" ? "paid" : status;
   const label =
@@ -133,13 +145,9 @@ function statusBadge(status) {
         : status === "expired"
           ? "Expired"
           : status;
-  const icon =
-    status === "paid"
-      ? '<span class="badge-ico" aria-hidden="true">✓</span>'
-      : status === "pending"
-        ? '<span class="badge-ico" aria-hidden="true">•</span>'
-        : '<span class="badge-ico" aria-hidden="true">×</span>';
-  return `<span class="badge ${key}">${icon}${label}</span>`;
+  const iconKind =
+    status === "paid" ? "paid" : status === "pending" ? "pending" : "expired";
+  return `<span class="badge ${key}">${badgeIcon(iconKind)}<span class="badge-label">${label}</span></span>`;
 }
 
 function greeting() {
@@ -245,9 +253,7 @@ function paymentRow(p, { rich = false } = {}) {
         </div>
       </td>
       <td>
-        <button type="button" class="txn-id-link" data-payment-id="${key}" title="View payment details">
-          <code class="txn-id">${escapeHtml(shortId(p))}</code>
-        </button>
+        <code class="txn-id">${escapeHtml(shortId(p))}</code>
       </td>
       <td class="txn-date">${fmtTxnDate(p.settledAt || p.createdAt)}</td>
       <td>${statusBadge(p.status)}</td>
@@ -499,12 +505,12 @@ function syncPayoutNav() {
 
 function payoutStatusBadge(status) {
   const map = {
-    paid: { className: "paid", label: "Paid", icon: "✓" },
-    pending: { className: "pending", label: "Pending", icon: "•" },
-    failed: { className: "expired", label: "Failed", icon: "×" },
+    paid: { className: "paid", label: "Paid", icon: "paid" },
+    pending: { className: "pending", label: "Pending", icon: "pending" },
+    failed: { className: "expired", label: "Failed", icon: "expired" },
   };
-  const info = map[status] || { className: status, label: status, icon: "•" };
-  return `<span class="badge ${info.className}"><span class="badge-ico" aria-hidden="true">${info.icon}</span>${info.label}</span>`;
+  const info = map[status] || { className: status, label: status, icon: "pending" };
+  return `<span class="badge ${info.className}">${badgeIcon(info.icon)}<span class="badge-label">${info.label}</span></span>`;
 }
 
 function renderPayouts() {
@@ -1468,23 +1474,13 @@ document.getElementById("paymentDetailBack")?.addEventListener("click", () => {
 document.getElementById("pdCopyIdBtn")?.addEventListener("click", copyPaymentId);
 document.getElementById("pdCopyHashBtn")?.addEventListener("click", copyPaymentId);
 
-document.getElementById("historyPaymentsTable")?.addEventListener("click", (e) => {
-  const link = e.target.closest("[data-payment-id]");
-  if (!link || !link.classList.contains("txn-id-link")) return;
-  e.preventDefault();
-  openPaymentDetail(link.dataset.paymentId);
-});
-
-document.getElementById("todayPaymentsTable")?.addEventListener("click", (e) => {
-  const row = e.target.closest("tr[data-payment-id]");
+// Whole payment row opens detail (history, today, home recent)
+document.addEventListener("click", (e) => {
+  const row = e.target.closest?.("tr.txn-row[data-payment-id], .home-recent-row[data-payment-id]");
   if (!row) return;
-  openPaymentDetail(row.dataset.paymentId);
-});
-
-document.getElementById("homeRecentList")?.addEventListener("click", (e) => {
-  const row = e.target.closest("[data-payment-id]");
-  if (!row) return;
-  openPaymentDetail(row.dataset.paymentId);
+  const key = row.getAttribute("data-payment-id");
+  if (!key) return;
+  openPaymentDetail(key);
 });
 
 document.querySelectorAll("[data-history-tab]").forEach((btn) => {
