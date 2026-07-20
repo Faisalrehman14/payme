@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/brand.css" />
-  <link rel="stylesheet" href="/dashboard.css" />
+  <link rel="stylesheet" href="/dashboard.css?v=4" />
 </head>
 <body>
   <section id="loginSection" class="login-shell">
@@ -22,29 +22,20 @@
           <span>Payment Portal</span>
         </div>
       </div>
-      <h2>Your office payment command center.</h2>
-      <p class="brand-lead">Track Cash App payments and manage your checkout link — all in one secure dashboard.</p>
-      <div class="login-features">
-        <div class="login-feature">
-          <span class="login-feature-icon">📊</span>
-          <span>Real-time revenue & transaction stats</span>
-        </div>
-        <div class="login-feature">
-          <span class="login-feature-icon">🔗</span>
-          <span>Shareable payment link & QR code</span>
-        </div>
-        <div class="login-feature">
-          <span class="login-feature-icon">🔒</span>
-          <span>Encrypted sessions & secure access</span>
-        </div>
-      </div>
+      <h2>Payments infrastructure for every office.</h2>
+      <p class="brand-lead">Monitor Cash App checkouts, settle balances, and share your office payment link from one secure dashboard.</p>
+      <ul class="login-points">
+        <li>Live revenue and transaction sync</li>
+        <li>Dedicated checkout link &amp; QR</li>
+        <li>Encrypted staff sessions</li>
+      </ul>
     </div>
 
     <div class="login-form-panel">
       <div class="login-card">
-        <div class="login-card-mark">G</div>
-        <h1>Office Sign In</h1>
-        <p class="sub">Enter your credentials to access the payment dashboard</p>
+        <img class="login-card-mark" src="/brand/logo-mark.svg?v=3" alt="" />
+        <h1>Sign in to your office</h1>
+        <p class="sub">Use the credentials provided by your Globa Pay admin.</p>
 
         <div class="field-group">
           <label class="field-label" for="loginUser">Username</label>
@@ -55,13 +46,13 @@
           <input id="loginPass" class="field" type="password" placeholder="••••••••" autocomplete="current-password" />
         </div>
 
-        <button id="loginBtn" type="button" class="btn btn-primary">Sign In to Dashboard</button>
+        <button id="loginBtn" type="button" class="btn btn-primary">Continue</button>
         <p id="adminNotice" class="notice hidden">You are logged in as admin. Logout below so office staff can sign in.</p>
         <button id="loginLogoutBtn" class="btn btn-secondary hidden" type="button">Logout Admin</button>
         <p class="error" id="loginError"></p>
 
         <p class="login-foot-note">
-          Admin user? <a href="/admin">Open admin portal</a>
+          Admin? <a href="/admin">Open admin portal</a>
           · <a href="/">About Globa Pay</a>
         </p>
       </div>
@@ -74,98 +65,102 @@
         <img class="brand-mark" src="/brand/logo-mark.svg?v=3" alt="Globa Pay" />
         <div class="brand-text">
           <strong>Globa Pay</strong>
-          <span>Payment Portal</span>
-        </div>
-      </div>
-
-      <div class="user-card">
-        <div class="avatar" id="userAvatar" aria-hidden="true">FA</div>
-        <div class="user-meta">
-          <div class="user-name" id="userName">—</div>
-          <div class="user-role" id="userRole">Office account</div>
+          <span>Office</span>
         </div>
       </div>
 
       <nav class="sidebar-nav">
         <button type="button" class="nav-item active" data-view="dashboard">
-          <span class="nav-icon">◫</span> Dashboard
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          </span>
+          Dashboard
         </button>
         <button type="button" class="nav-item" data-view="history">
-          <span class="nav-icon">☰</span> Payment History
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          </span>
+          Payments
         </button>
         <button type="button" class="nav-item hidden" data-view="payouts" id="navPayouts">
-          <span class="nav-icon">₿</span> Payouts
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>
+          </span>
+          Payouts
         </button>
         <button type="button" class="nav-item" data-view="monthly">
-          <span class="nav-icon">▦</span> Monthly Records
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9l4 3 4-6 4 4 4-5v14H4z"/></svg>
+          </span>
+          Reports
         </button>
         <button type="button" class="nav-item" data-view="checkout">
-          <span class="nav-icon">⛓</span> Checkout Link
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L11 5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.8 13.12a5 5 0 0 0 7.07 7.07L13 19"/></svg>
+          </span>
+          Checkout
         </button>
         <button type="button" class="nav-item" data-view="settings">
-          <span class="nav-icon">⚙</span> Settings
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          </span>
+          Settings
         </button>
       </nav>
 
-      <div class="sidebar-actions">
-        <button type="button" class="copy-link-btn" id="copyLinkBtn">Copy Payment Link</button>
-        <button type="button" class="logout-side" id="logoutBtn">Sign Out</button>
-        <p class="sidebar-support">Need help? Ask your Globa Pay admin.</p>
+      <div class="sidebar-footer">
+        <div class="user-card">
+          <div class="avatar" id="userAvatar" aria-hidden="true">FA</div>
+          <div class="user-meta">
+            <div class="user-name" id="userName">—</div>
+            <div class="user-role" id="userRole">Office account</div>
+          </div>
+        </div>
+        <button type="button" class="copy-link-btn" id="copyLinkBtn">Copy payment link</button>
+        <button type="button" class="logout-side" id="logoutBtn">Sign out</button>
       </div>
     </aside>
 
     <main class="main">
       <header class="main-topbar">
         <div class="topbar-office">
-          Office
+          <span class="topbar-kicker">Office</span>
           <strong id="topbarOfficeName">—</strong>
         </div>
-        <span class="live-pill" id="livePill">Live sync</span>
+        <span class="live-pill" id="livePill">Live</span>
       </header>
 
       <div class="main-content">
         <section class="view" id="view-dashboard">
-          <div class="hero">
+          <div class="hero page-header">
             <div>
               <h1 id="greeting">Good morning</h1>
-              <p>Track payments and customer activity for your office.</p>
+              <p class="sub">Overview of today’s Cash App activity for your office.</p>
             </div>
             <div class="hero-actions">
-              <button type="button" class="btn btn-outline" id="heroShareBtn">Share Link</button>
-              <button type="button" class="btn btn-outline" data-view-jump="history">View History</button>
+              <button type="button" class="btn btn-outline" id="heroShareBtn">Share link</button>
+              <button type="button" class="btn btn-primary" data-view-jump="history">View payments</button>
             </div>
           </div>
 
           <div class="stat-grid">
             <div class="stat-card highlight">
-              <div class="stat-card-top">
-                <div class="stat-label">Today's Revenue</div>
-                <div class="stat-icon green">$</div>
-              </div>
+              <div class="stat-label">Today’s revenue</div>
               <div class="stat-value" id="todayTotal">$0.00</div>
               <div class="stat-sub">Paid today</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-top">
-                <div class="stat-label">Transactions</div>
-                <div class="stat-icon purple">#</div>
-              </div>
+              <div class="stat-label">Transactions</div>
               <div class="stat-value" id="todayCount">0</div>
-              <div class="stat-sub">Today</div>
+              <div class="stat-sub">Completed today</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-top">
-                <div class="stat-label">Month Revenue</div>
-                <div class="stat-icon orange">▲</div>
-              </div>
+              <div class="stat-label">Month revenue</div>
               <div class="stat-value" id="monthTotal">$0.00</div>
               <div class="stat-sub" id="monthSub">0 txns this month</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-top">
-                <div class="stat-label">Pending</div>
-                <div class="stat-icon blue">⏳</div>
-              </div>
+              <div class="stat-label">Pending</div>
               <div class="stat-value" id="pendingCount">0</div>
               <div class="stat-sub">Awaiting payment</div>
             </div>
@@ -173,8 +168,11 @@
 
           <div class="panel">
             <div class="panel-head">
-              <h2>Today's Transactions</h2>
-              <input type="search" id="searchInput" placeholder="Search status..." />
+              <div>
+                <h2>Today’s payments</h2>
+                <p class="panel-desc">Settled transactions for the current day</p>
+              </div>
+              <input type="search" id="searchInput" placeholder="Filter by status or method…" />
             </div>
             <div class="table-wrap">
               <table>
@@ -224,34 +222,22 @@
 
           <div class="stat-grid payout-stat-grid">
             <div class="stat-card highlight">
-              <div class="stat-card-top">
-                <div class="stat-label">Available for Payout</div>
-                <div class="stat-icon green">$</div>
-              </div>
+              <div class="stat-label">Available for payout</div>
               <div class="stat-value" id="payoutAvailable">$0.00</div>
               <div class="stat-sub" id="payoutAvailableSub">After platform fee</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-top">
-                <div class="stat-label">Total Earned</div>
-                <div class="stat-icon blue">▲</div>
-              </div>
+              <div class="stat-label">Total earned</div>
               <div class="stat-value" id="payoutEarned">$0.00</div>
               <div class="stat-sub">All paid customer payments</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-top">
-                <div class="stat-label">Platform Fee</div>
-                <div class="stat-icon purple">%</div>
-              </div>
+              <div class="stat-label">Platform fee</div>
               <div class="stat-value" id="payoutFee">$0.00</div>
               <div class="stat-sub" id="payoutFeeSub">0% platform fee</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-top">
-                <div class="stat-label">Total Withdrawn</div>
-                <div class="stat-icon orange">↓</div>
-              </div>
+              <div class="stat-label">Total withdrawn</div>
               <div class="stat-value" id="payoutWithdrawn">$0.00</div>
               <div class="stat-sub">Successfully paid out</div>
             </div>
@@ -512,6 +498,6 @@
     </main>
   </div>
 
-  <script src="/dashboard.js"></script>
+  <script src="/dashboard.js?v=4"></script>
 </body>
 </html>

@@ -183,7 +183,7 @@ function renderPaymentsTable(tbody, payments, filter = "") {
 
   tbody.innerHTML =
     rows.map((p) => paymentRow(p)).join("") ||
-    `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">📭</div>No payments yet — share your checkout link to get started.</div></td></tr>`;
+    `<tr><td colspan="4"><div class="empty-state">No payments yet — share your checkout link to get started.</div></td></tr>`;
 }
 
 function loadPrefs() {
