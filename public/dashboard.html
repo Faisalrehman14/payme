@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/brand.css" />
-  <link rel="stylesheet" href="/dashboard.css?v=5" />
+  <link rel="stylesheet" href="/dashboard.css?v=4" />
 </head>
 <body>
   <section id="loginSection" class="login-shell">
@@ -110,10 +110,10 @@
 
       <div class="sidebar-footer">
         <div class="user-card">
-          <img class="avatar avatar-logo" id="userAvatar" src="/brand/logo-mark.svg?v=3" alt="" />
+          <div class="avatar" id="userAvatar" aria-hidden="true">FA</div>
           <div class="user-meta">
             <div class="user-name" id="userName">—</div>
-            <div class="user-role" id="userRole">Office operator</div>
+            <div class="user-role" id="userRole">Office account</div>
           </div>
         </div>
         <button type="button" class="copy-link-btn" id="copyLinkBtn">Copy payment link</button>
@@ -147,12 +147,12 @@
             <div class="stat-card highlight">
               <div class="stat-label">Today’s revenue</div>
               <div class="stat-value" id="todayTotal">$0.00</div>
-              <div class="stat-sub">Business day · since 4:00 AM</div>
+              <div class="stat-sub">Paid today</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Transactions</div>
               <div class="stat-value" id="todayCount">0</div>
-              <div class="stat-sub">Completed this business day</div>
+              <div class="stat-sub">Completed today</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Month revenue</div>
@@ -498,6 +498,6 @@
     </main>
   </div>
 
-  <script src="/dashboard.js?v=5"></script>
+  <script src="/dashboard.js?v=4"></script>
 </body>
 </html>

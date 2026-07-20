@@ -72,44 +72,20 @@ function activeTimezone() {
   return dashboardData?.stats?.timeZone || loadPrefs().timezone || "Asia/Karachi";
 }
 
-function businessDayStartHour() {
-  return Number(dashboardData?.stats?.dayStartHour ?? 4);
-}
-
-function zonedPartsClient(iso, timeZone = activeTimezone()) {
-  const parts = new Intl.DateTimeFormat("en-US", {
+function dateKeyInTz(iso, timeZone = activeTimezone()) {
+  if (!iso) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-    hour: "2-digit",
-    hourCycle: "h23",
   }).formatToParts(new Date(iso));
   const get = (type) => parts.find((p) => p.type === type)?.value;
-  return {
-    year: Number(get("year")),
-    month: Number(get("month")),
-    day: Number(get("day")),
-    hour: Number(get("hour")),
-  };
-}
-
-function businessDateKey(iso, timeZone = activeTimezone()) {
-  if (!iso) return "";
-  const p = zonedPartsClient(iso, timeZone);
-  let utcMidnight = Date.UTC(p.year, p.month - 1, p.day);
-  if (p.hour < businessDayStartHour()) {
-    utcMidnight -= 24 * 60 * 60 * 1000;
-  }
-  const shifted = new Date(utcMidnight);
-  const y = shifted.getUTCFullYear();
-  const m = String(shifted.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(shifted.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
 function isToday(iso) {
-  return businessDateKey(iso) === businessDateKey(new Date().toISOString());
+  return dateKeyInTz(iso) === dateKeyInTz(new Date().toISOString());
 }
 
 function fmtTime(iso) {
@@ -485,15 +461,10 @@ function renderDashboard() {
 
   document.getElementById("greeting").textContent = `${greeting()}, ${displayName(user.username)}`;
   document.getElementById("userName").textContent = displayName(user.username);
+  document.getElementById("userAvatar").textContent = initialsFromName(user.username);
   const userRole = document.getElementById("userRole");
   if (userRole) {
-    const officeName = (office?.name || "").trim();
-    const uname = (user.username || "").trim().toLowerCase();
-    if (officeName && officeName.toLowerCase() !== uname) {
-      userRole.textContent = officeName;
-    } else {
-      userRole.textContent = "Office operator";
-    }
+    userRole.textContent = office?.name ? `${office.name}` : "Office account";
   }
 
   const topbarOffice = document.getElementById("topbarOfficeName");
