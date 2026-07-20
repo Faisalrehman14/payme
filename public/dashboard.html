@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/brand.css" />
-  <link rel="stylesheet" href="/dashboard.css?v=8" />
+  <link rel="stylesheet" href="/dashboard.css?v=9" />
 </head>
 <body>
   <section id="loginSection" class="login-shell">
@@ -128,47 +128,125 @@
 
       <div class="main-content">
         <section class="view" id="view-dashboard">
-          <div class="hero page-header">
-            <div>
-              <h1 id="greeting">Good morning</h1>
-              <p class="sub">Overview of today’s Cash App activity for your office.</p>
+          <div class="home-today">
+            <div class="home-today-head">
+              <div>
+                <p class="home-kicker">Today</p>
+                <h1 id="greeting">Good morning</h1>
+              </div>
+              <div class="hero-actions">
+                <button type="button" class="btn btn-outline" id="heroShareBtn">Share link</button>
+                <button type="button" class="btn btn-primary" data-view-jump="history">View transactions</button>
+              </div>
             </div>
-            <div class="hero-actions">
-              <button type="button" class="btn btn-outline" id="heroShareBtn">Share link</button>
-              <button type="button" class="btn btn-primary" data-view-jump="history">View transactions</button>
+
+            <div class="home-today-grid">
+              <div class="home-card home-card-wide">
+                <div class="home-card-head">
+                  <div>
+                    <h2>Gross volume</h2>
+                    <p class="home-compare">
+                      <strong id="todayTotal">$0.00</strong>
+                      <span id="todayVsYesterday">vs $0.00 yesterday</span>
+                    </p>
+                  </div>
+                  <span class="home-chip" id="todayCountChip">0 payments</span>
+                </div>
+                <div class="home-chart" id="todayVolumeChart" aria-hidden="true"></div>
+              </div>
+
+              <div class="home-side-stack">
+                <div class="home-card home-balance-card">
+                  <div class="home-card-head tight">
+                    <h3>Available balance</h3>
+                    <button type="button" class="home-link" data-view-jump="history" data-history-open="payouts">View</button>
+                  </div>
+                  <div class="home-balance-value" id="homeAvailable">$0.00</div>
+                  <p class="home-balance-sub" id="homeAvailableSub">Payouts may be disabled</p>
+                </div>
+                <div class="home-card home-cta-card">
+                  <p class="home-cta-eyebrow">Checkout</p>
+                  <h3>Share your Cash App payment link</h3>
+                  <p>Customers pay instantly and balances update live on your dashboard.</p>
+                  <button type="button" class="btn btn-primary btn-sm" data-view-jump="checkout">Open checkout</button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="stat-grid">
-            <div class="stat-card highlight">
-              <div class="stat-label">Today’s revenue</div>
-              <div class="stat-value" id="todayTotal">$0.00</div>
-              <div class="stat-sub">Paid today</div>
+          <div class="home-overview">
+            <div class="home-overview-head">
+              <div>
+                <h2>Your overview</h2>
+                <p class="sub">All-time office payment activity</p>
+              </div>
+              <div class="home-overview-meta">
+                <span class="home-meta-pill" id="monthSub">0 txns this month</span>
+                <span class="home-meta-pill" id="pendingCountPill">0 pending</span>
+              </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Transactions</div>
-              <div class="stat-value" id="todayCount">0</div>
-              <div class="stat-sub">Completed today</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Month revenue</div>
-              <div class="stat-value" id="monthTotal">$0.00</div>
-              <div class="stat-sub" id="monthSub">0 txns this month</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Pending</div>
-              <div class="stat-value" id="pendingCount">0</div>
-              <div class="stat-sub">Awaiting payment</div>
+
+            <div class="home-overview-grid">
+              <div class="home-card">
+                <div class="home-card-head tight">
+                  <h3>Payments</h3>
+                </div>
+                <div class="payments-bar" id="homePaymentsBar"></div>
+                <div class="payments-legend" id="homePaymentsLegend"></div>
+              </div>
+
+              <div class="home-card">
+                <div class="home-card-head tight">
+                  <h3>Gross volume</h3>
+                </div>
+                <div class="home-metric" id="monthTotal">$0.00</div>
+                <p class="home-metric-sub">This month</p>
+                <div class="home-chart home-chart-sm" id="homeMonthChart" aria-hidden="true"></div>
+              </div>
+
+              <div class="home-card">
+                <div class="home-card-head tight">
+                  <h3>Succeeded today</h3>
+                </div>
+                <div class="home-metric" id="todayCount">0</div>
+                <p class="home-metric-sub">Completed payments</p>
+                <div class="home-chart home-chart-sm" id="homeTodayCountChart" aria-hidden="true"></div>
+              </div>
+
+              <div class="home-card home-card-list">
+                <div class="home-card-head tight">
+                  <h3>Recent activity</h3>
+                  <button type="button" class="home-link" data-view-jump="history">View all</button>
+                </div>
+                <div class="home-recent" id="homeRecentList"></div>
+              </div>
+
+              <div class="home-card">
+                <div class="home-card-head tight">
+                  <h3>Pending</h3>
+                </div>
+                <div class="home-metric" id="pendingCount">0</div>
+                <p class="home-metric-sub">Awaiting payment</p>
+              </div>
+
+              <div class="home-card">
+                <div class="home-card-head tight">
+                  <h3>Cash App</h3>
+                </div>
+                <div class="home-metric" id="homeCashAppShare">100%</div>
+                <p class="home-metric-sub">Of succeeded payments</p>
+                <div class="method-bar home-method-bar"><span id="homeCashAppBar" style="width:100%"></span></div>
+              </div>
             </div>
           </div>
 
-          <div class="panel">
+          <div class="panel home-today-table-panel">
             <div class="panel-head">
               <div>
                 <h2>Today’s payments</h2>
                 <p class="panel-desc">Settled transactions for the current day</p>
               </div>
-              <input type="search" id="searchInput" placeholder="Filter by status or method…" />
+              <input type="search" id="searchInput" class="hidden" placeholder="Filter…" />
             </div>
             <div class="table-wrap">
               <table class="txn-table">
@@ -578,6 +656,6 @@
     </main>
   </div>
 
-  <script src="/dashboard.js?v=8"></script>
+  <script src="/dashboard.js?v=9"></script>
 </body>
 </html>

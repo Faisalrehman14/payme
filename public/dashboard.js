@@ -531,6 +531,159 @@ function exportMonthlyCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+function isYesterday(iso) {
+  const todayKey = dateKeyInTz(new Date().toISOString());
+  const [y, m, d] = todayKey.split("-").map(Number);
+  const prev = new Date(Date.UTC(y, m - 1, d) - 24 * 60 * 60 * 1000);
+  const yKey = `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}-${String(prev.getUTCDate()).padStart(2, "0")}`;
+  return dateKeyInTz(iso) === yKey;
+}
+
+function sparklineSvg(values, color = "#1d4ed8") {
+  const nums = values.length ? values : [0, 0];
+  const w = 320;
+  const h = 88;
+  const pad = 8;
+  const max = Math.max(...nums, 1);
+  const step = (w - pad * 2) / Math.max(nums.length - 1, 1);
+  const pts = nums
+    .map((v, i) => {
+      const x = pad + i * step;
+      const y = h - pad - (v / max) * (h - pad * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+  const area = `${pad},${h - pad} ${pts} ${pad + (nums.length - 1) * step},${h - pad}`;
+  return `
+    <svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="none">
+      <polygon fill="${color}" fill-opacity="0.08" points="${area}"></polygon>
+      <polyline fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${pts}"></polyline>
+    </svg>`;
+}
+
+function hourBucketsForDay(payments) {
+  const buckets = Array.from({ length: 24 }, () => 0);
+  for (const p of payments) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: activeTimezone(),
+      hour: "numeric",
+      hourCycle: "h23",
+    }).formatToParts(new Date(p.settledAt || p.createdAt));
+    const hour = Number(parts.find((x) => x.type === "hour")?.value || 0);
+    buckets[hour] += Number(p.amountUsd) || 0;
+  }
+  return buckets;
+}
+
+function lastNDayTotals(n = 14) {
+  const days = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const key = dateKeyInTz(d.toISOString());
+    days.push({ key, total: 0, count: 0 });
+  }
+  const byKey = Object.fromEntries(days.map((d) => [d.key, d]));
+  for (const p of allPayments) {
+    if (p.status !== "paid") continue;
+    const key = dateKeyInTz(p.settledAt || p.createdAt);
+    if (byKey[key]) {
+      byKey[key].total += Number(p.amountUsd) || 0;
+      byKey[key].count += 1;
+    }
+  }
+  return days;
+}
+
+function renderHomeOverview() {
+  const paidToday = allPayments.filter(
+    (p) => p.status === "paid" && isToday(p.settledAt || p.createdAt)
+  );
+  const paidYesterday = allPayments.filter(
+    (p) => p.status === "paid" && isYesterday(p.settledAt || p.createdAt)
+  );
+  const yesterdayTotal = paidYesterday.reduce((s, p) => s + (Number(p.amountUsd) || 0), 0);
+  setText("todayVsYesterday", `vs ${money(yesterdayTotal)} yesterday`);
+  setText("todayCountChip", `${paidToday.length} payment${paidToday.length === 1 ? "" : "s"}`);
+
+  const todayChart = document.getElementById("todayVolumeChart");
+  if (todayChart) todayChart.innerHTML = sparklineSvg(hourBucketsForDay(paidToday));
+
+  const daySeries = lastNDayTotals(14);
+  const monthChart = document.getElementById("homeMonthChart");
+  if (monthChart) monthChart.innerHTML = sparklineSvg(daySeries.map((d) => d.total));
+  const todayCountChart = document.getElementById("homeTodayCountChart");
+  if (todayCountChart) todayCountChart.innerHTML = sparklineSvg(daySeries.map((d) => d.count), "#0d9488");
+
+  const succeeded = allPayments.filter((p) => p.status === "paid");
+  const pending = allPayments.filter((p) => p.status === "pending");
+  const expired = allPayments.filter((p) => p.status === "expired");
+  const succeededAmt = succeeded.reduce((s, p) => s + (Number(p.amountUsd) || 0), 0);
+  const pendingAmt = pending.reduce((s, p) => s + (Number(p.amountUsd) || 0), 0);
+  const expiredAmt = expired.reduce((s, p) => s + (Number(p.amountUsd) || 0), 0);
+  const totalAmt = Math.max(succeededAmt + pendingAmt + expiredAmt, 0.0001);
+  const sPct = (succeededAmt / totalAmt) * 100;
+  const pPct = (pendingAmt / totalAmt) * 100;
+  const ePct = (expiredAmt / totalAmt) * 100;
+
+  const bar = document.getElementById("homePaymentsBar");
+  if (bar) {
+    bar.innerHTML = `
+      <span class="seg succeeded" style="width:${sPct}%"></span>
+      <span class="seg pending" style="width:${pPct}%"></span>
+      <span class="seg expired" style="width:${ePct}%"></span>`;
+  }
+  const legend = document.getElementById("homePaymentsLegend");
+  if (legend) {
+    legend.innerHTML = `
+      <div><i class="dot succeeded"></i>Succeeded <strong>${money(succeededAmt)}</strong></div>
+      <div><i class="dot pending"></i>Pending <strong>${money(pendingAmt)}</strong></div>
+      <div><i class="dot expired"></i>Expired <strong>${money(expiredAmt)}</strong></div>`;
+  }
+
+  setText("pendingCountPill", `${pending.length} pending`);
+  setText("homeCashAppShare", succeeded.length ? "100%" : "0%");
+
+  const bal = dashboardData?.payoutBalance || payoutData?.balance;
+  if (bal) {
+    setText("homeAvailable", money(bal.availableUsd));
+    setText(
+      "homeAvailableSub",
+      `${Number(bal.commissionPercent || 0).toFixed(1)}% fee · your withdrawable share`
+    );
+  } else if (dashboardData?.office?.payoutsEnabled) {
+    setText("homeAvailable", "—");
+    setText("homeAvailableSub", "Loading balance…");
+  } else {
+    setText("homeAvailable", money(dashboardData?.stats?.monthTotal || 0));
+    setText("homeAvailableSub", "Month revenue · payouts not enabled");
+  }
+
+  const recent = [...allPayments]
+    .sort(
+      (a, b) =>
+        new Date(b.settledAt || b.createdAt) - new Date(a.settledAt || a.createdAt)
+    )
+    .slice(0, 5);
+  const recentEl = document.getElementById("homeRecentList");
+  if (recentEl) {
+    recentEl.innerHTML =
+      recent
+        .map(
+          (p) => `
+        <div class="home-recent-row">
+          <div>
+            <strong>${money(p.amountUsd)}</strong>
+            <span>${fmtTxnDate(p.settledAt || p.createdAt)}</span>
+          </div>
+          ${statusBadge(p.status)}
+        </div>`
+        )
+        .join("") || `<div class="empty-state">No recent payments yet.</div>`;
+  }
+}
+
 let historyStatusFilter = "all";
 let historyTab = "payments";
 let payoutStatusFilter = "all";
@@ -756,6 +909,7 @@ function renderDashboard() {
     todayPayments,
     searchInput?.value || ""
   );
+  renderHomeOverview();
   renderHistoryView();
   renderCheckout();
   renderSettings();
@@ -766,24 +920,25 @@ function renderDashboard() {
       balance: dashboardData.payoutBalance,
       payouts: payoutData?.payouts || [],
     };
+    renderHomeOverview();
     if (getCurrentView() === "payouts" || historyTab === "payouts") {
       renderPayouts();
       if (historyTab === "payouts") renderHistoryView();
     }
+  } else if (office?.payoutsEnabled) {
+    loadPayouts().then(() => renderHomeOverview());
   }
 }
 
 function setDashboardLoading() {
   if (dashboardInitialLoad) return;
-  document.querySelectorAll("#view-dashboard .stat-value").forEach((el) => {
+  document.querySelectorAll("#view-dashboard .home-metric, #todayTotal").forEach((el) => {
     el.classList.add("is-loading");
-    el.dataset.prev = el.textContent;
-    el.innerHTML = '<span class="stat-skeleton" aria-hidden="true"></span>';
   });
 }
 
 function clearDashboardLoading() {
-  document.querySelectorAll("#view-dashboard .stat-value.is-loading").forEach((el) => {
+  document.querySelectorAll("#view-dashboard .is-loading").forEach((el) => {
     el.classList.remove("is-loading");
   });
 }
