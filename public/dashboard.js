@@ -68,9 +68,59 @@ function money(n) {
   return `$${Number(n || 0).toFixed(2)}`;
 }
 
+function activeTimezone() {
+  return dashboardData?.stats?.timeZone || loadPrefs().timezone || "Asia/Karachi";
+}
+
+function dateKeyInTz(iso, timeZone = activeTimezone()) {
+  if (!iso) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(iso));
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function isToday(iso) {
+  return dateKeyInTz(iso) === dateKeyInTz(new Date().toISOString());
+}
+
 function fmtTime(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString();
+  return new Date(iso).toLocaleString(undefined, {
+    timeZone: activeTimezone(),
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function displayName(username) {
+  const raw = String(username || "").trim();
+  if (!raw) return "—";
+  return raw
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function initialsFromName(username) {
+  const parts = String(username || "")
+    .trim()
+    .split(/[\s._-]+/)
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  const s = parts[0] || "GP";
+  return s.slice(0, 2).toUpperCase();
 }
 
 function statusBadge(status) {
@@ -79,7 +129,12 @@ function statusBadge(status) {
 }
 
 function greeting() {
-  const h = new Date().getHours();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: activeTimezone(),
+    hour: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const h = Number(parts.find((p) => p.type === "hour")?.value || 0);
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
@@ -106,16 +161,6 @@ function showApp() {
 function showAdminLoggedInNotice() {
   adminNotice.classList.remove("hidden");
   loginLogoutBtn.classList.remove("hidden");
-}
-
-function isToday(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
 }
 
 function paymentRow(p) {
@@ -414,15 +459,26 @@ function renderDashboard() {
   if (!dashboardData) return;
   const { user, office, stats } = dashboardData;
 
-  document.getElementById("greeting").textContent = `${greeting()}, ${user.username}`;
-  document.getElementById("userName").textContent = user.username;
-  document.getElementById("userAvatar").textContent = user.username.charAt(0).toUpperCase();
+  document.getElementById("greeting").textContent = `${greeting()}, ${displayName(user.username)}`;
+  document.getElementById("userName").textContent = displayName(user.username);
+  document.getElementById("userAvatar").textContent = initialsFromName(user.username);
+  const userRole = document.getElementById("userRole");
+  if (userRole) {
+    userRole.textContent = office?.name ? `${office.name}` : "Office account";
+  }
 
   const topbarOffice = document.getElementById("topbarOfficeName");
   if (topbarOffice) topbarOffice.textContent = office?.name || "—";
 
   const livePill = document.getElementById("livePill");
-  if (livePill) livePill.textContent = `Live · ${new Date().toLocaleTimeString()}`;
+  if (livePill) {
+    livePill.textContent = `Live · ${new Date().toLocaleTimeString(undefined, {
+      timeZone: activeTimezone(),
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    })}`;
+  }
 
   document.getElementById("todayTotal").textContent = money(stats.todayTotal);
   document.getElementById("todayCount").textContent = stats.todayCount;
@@ -430,7 +486,12 @@ function renderDashboard() {
   document.getElementById("monthSub").textContent = `${stats.monthCount} txns this month`;
   document.getElementById("pendingCount").textContent = stats.pendingCount;
 
-  const todayPayments = allPayments.filter((p) => isToday(p.settledAt || p.createdAt));
+  const todayPayments = allPayments
+    .filter((p) => p.status === "paid" && isToday(p.settledAt || p.createdAt))
+    .sort(
+      (a, b) =>
+        new Date(b.settledAt || b.createdAt) - new Date(a.settledAt || a.createdAt)
+    );
   renderPaymentsTable(
     document.getElementById("todayPaymentsTable"),
     todayPayments,

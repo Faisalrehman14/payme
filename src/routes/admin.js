@@ -25,9 +25,10 @@ router.get("/overview", requireAuth, requireAdmin, async (_req, res) => {
     const payments = (await db.listAllPayments(300)).map((p) => paymentView(p, officesById));
     const paid = payments.filter((p) => p.status === "paid");
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const todayPaid = paid.filter((p) => new Date(p.settledAt || p.createdAt) >= startOfDay);
+    const { isSameDayInTz, DEFAULT_TIMEZONE } = require("../utils/timezone");
+    const todayPaid = paid.filter((p) =>
+      isSameDayInTz(p.settledAt || p.createdAt, new Date(), DEFAULT_TIMEZONE)
+    );
 
     const nwc = parseNwcUrl(process.env.NWC_URL || "");
     const paymentProvider = await testPaymentProvider();

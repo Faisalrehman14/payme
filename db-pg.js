@@ -854,6 +854,9 @@ async function getDashboardStats(officeId) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
 
+  const { isSameDayInTz, isSameMonthInTz, DEFAULT_TIMEZONE } = require("./src/utils/timezone");
+  const timeZone = DEFAULT_TIMEZONE;
+
   const { rows } = await pool.query(
     `SELECT amount_usd, status, settled_at, created_at
      FROM payments
@@ -862,9 +865,6 @@ async function getDashboardStats(officeId) {
   );
 
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
   let todayTotal = 0;
   let todayCount = 0;
   let monthTotal = 0;
@@ -875,11 +875,11 @@ async function getDashboardStats(officeId) {
     const amount = Number(row.amount_usd);
     const paidAt = new Date(row.settled_at || row.created_at);
 
-    if (paidAt >= startOfDay) {
+    if (isSameDayInTz(paidAt, now, timeZone)) {
       todayTotal += amount;
       todayCount += 1;
     }
-    if (paidAt >= startOfMonth) {
+    if (isSameMonthInTz(paidAt, now, timeZone)) {
       monthTotal += amount;
       monthCount += 1;
     }
@@ -893,17 +893,20 @@ async function getDashboardStats(officeId) {
     totalPayments: rows.length,
     paidCount: rows.filter((r) => r.status === "paid").length,
     pendingCount: rows.filter((r) => r.status === "pending").length,
+    timeZone,
   };
 }
 
 async function getMonthlyStats(officeId, month, year) {
   const office = await getOfficeById(officeId);
   if (!office) throw new Error("Office not found");
+  const { dateKeyInTz, monthYearInTz, DEFAULT_TIMEZONE } = require("./src/utils/timezone");
+  const timeZone = DEFAULT_TIMEZONE;
   const payments = (await listPaymentsForOffice(officeId, 10000)).filter((p) => p.status === "paid");
 
   const inMonth = payments.filter((p) => {
-    const d = new Date(p.settledAt || p.createdAt);
-    return d.getMonth() + 1 === month && d.getFullYear() === year;
+    const { month: m, year: y } = monthYearInTz(p.settledAt || p.createdAt, timeZone);
+    return m === month && y === year;
   });
 
   const amounts = inMonth.map((p) => Number(p.amountUsd) || 0);
@@ -911,8 +914,7 @@ async function getMonthlyStats(officeId, month, year) {
 
   const byDay = {};
   for (const p of inMonth) {
-    const d = new Date(p.settledAt || p.createdAt);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const key = dateKeyInTz(p.settledAt || p.createdAt, timeZone);
     if (!byDay[key]) byDay[key] = { date: key, transactions: 0, total: 0 };
     const amount = Number(p.amountUsd);
     byDay[key].transactions += 1;
@@ -930,6 +932,7 @@ async function getMonthlyStats(officeId, month, year) {
     highest: amounts.length ? Math.max(...amounts) : 0,
     lowest: amounts.length ? Math.min(...amounts) : 0,
     dailyBreakdown,
+    timeZone,
     paymentMethods: [
       {
         name: "Cash App",

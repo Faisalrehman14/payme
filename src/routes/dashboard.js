@@ -42,7 +42,7 @@ router.get("/payments", requireAuth, requireOffice, async (req, res) => {
     await syncOfficePayments(req.user.officeId);
     const offices = await db.listOffices();
     const officesById = Object.fromEntries(offices.map((o) => [o.id, o]));
-    const payments = (await db.listPaymentsForOffice(req.user.officeId)).map((p) =>
+    const payments = (await db.listPaymentsForOffice(req.user.officeId, 5000)).map((p) =>
       paymentView(p, officesById)
     );
     res.json({ payments });

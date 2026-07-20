@@ -35,6 +35,7 @@ const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "")
   .replace(/\/$/, "");
 
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
+const APP_TIMEZONE = (process.env.APP_TIMEZONE || "Asia/Karachi").trim() || "Asia/Karachi";
 
 module.exports = {
   PORT,
@@ -52,4 +53,5 @@ module.exports = {
   ALBY_LIGHTNING_ADDRESS,
   PUBLIC_BASE_URL,
   PUBLIC_DIR,
+  APP_TIMEZONE,
 };
