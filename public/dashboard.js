@@ -538,21 +538,28 @@ function renderPayouts() {
   }
 
   const tbody = document.getElementById("payoutHistoryTable");
+  if (!tbody) return;
   tbody.innerHTML =
     (payouts || [])
-      .map(
-        (p) => `
+      .map((p) => {
+        const amount = Number(p.amountUsd) || 0;
+        return `
       <tr>
-        <td>${money(p.amountUsd)}</td>
-        <td>${Number(p.amountSats || 0).toLocaleString()} sats</td>
-        <td>${fmtTime(p.settledAt || p.createdAt)}</td>
+        <td>
+          <div class="txn-amount-cell">
+            <strong>${money(amount)}</strong>
+            <span>USD</span>
+          </div>
+        </td>
+        <td class="txn-date">${Number(p.amountSats || 0).toLocaleString()} sats</td>
+        <td class="txn-date">${fmtTxnDate(p.settledAt || p.createdAt)}</td>
         <td>${payoutStatusBadge(p.status)}${
-          p.errorMessage ? `<div class="sub">${p.errorMessage}</div>` : ""
+          p.errorMessage ? `<div class="sub">${escapeHtml(p.errorMessage)}</div>` : ""
         }</td>
-      </tr>`
-      )
+      </tr>`;
+      })
       .join("") ||
-    `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">💸</div>No payouts yet.</div></td></tr>`;
+    `<tr><td colspan="4"><div class="empty-state">No payouts yet.</div></td></tr>`;
 }
 
 async function loadPayouts() {
@@ -1627,7 +1634,7 @@ requestPayoutBtn?.addEventListener("click", async () => {
   } finally {
     payoutSubmitting = false;
     requestPayoutBtn.disabled = false;
-    requestPayoutBtn.textContent = "Withdraw Now";
+    requestPayoutBtn.textContent = "Withdraw now";
   }
 });
 
