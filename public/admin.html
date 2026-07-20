@@ -152,10 +152,12 @@
 
         <div class="panel">
           <h3>Create Office User</h3>
+          <p class="sub">Create a login for office staff. Use Generate Password for a strong one-time credential.</p>
           <div class="form-grid">
             <select id="userOffice" class="field"></select>
-            <input id="userName" class="field" type="text" placeholder="Username" />
-            <input id="userPass" class="field" type="password" placeholder="Password (min 8)" />
+            <input id="userName" class="field" type="text" placeholder="Username" autocomplete="off" />
+            <input id="userPass" class="field" type="text" placeholder="Password (or generate)" autocomplete="off" />
+            <button id="generatePassBtn" class="btn btn-secondary" type="button">Generate Password</button>
             <button id="createUserBtn" class="btn btn-primary" type="button">Create User</button>
           </div>
           <p class="error" id="userError"></p>

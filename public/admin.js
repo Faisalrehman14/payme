@@ -25,6 +25,7 @@ const userOffice = document.getElementById("userOffice");
 const userName = document.getElementById("userName");
 const userPass = document.getElementById("userPass");
 const createUserBtn = document.getElementById("createUserBtn");
+const generatePassBtn = document.getElementById("generatePassBtn");
 const userError = document.getElementById("userError");
 const userSuccess = document.getElementById("userSuccess");
 const usersTable = document.getElementById("usersTable");
@@ -447,20 +448,36 @@ createUserBtn.addEventListener("click", async () => {
     return;
   }
   try {
+    const payload = {
+      officeId,
+      username: userName.value.trim(),
+    };
+    if (userPass.value.trim()) payload.password = userPass.value;
+    else payload.generatePassword = true;
+
     const data = await api("/api/admin/users", {
       method: "POST",
-      body: JSON.stringify({
-        officeId,
-        username: userName.value.trim(),
-        password: userPass.value,
-      }),
+      body: JSON.stringify(payload),
     });
     userName.value = "";
     userPass.value = "";
+    const temp = data.temporaryPassword
+      ? ` Temporary password: ${data.temporaryPassword} (share once, then ask them to change it).`
+      : "";
     const linkNote = data.user.payLink ? ` Payment link: ${data.user.payLink}` : "";
-    userSuccess.textContent = `User created for ${data.user.officeName || "office"}.${linkNote}`;
+    userSuccess.textContent = `User created for ${data.user.officeName || "office"}.${temp}${linkNote}`;
     await loadAll({ showLoading: false });
     if (officeId) userOffice.value = officeId;
+  } catch (err) {
+    userError.textContent = err.message;
+  }
+});
+
+generatePassBtn?.addEventListener("click", async () => {
+  try {
+    const data = await api("/api/admin/users/generate-password", { method: "POST" });
+    userPass.value = data.password;
+    userSuccess.textContent = "Strong password generated — copy it before creating the user.";
   } catch (err) {
     userError.textContent = err.message;
   }
@@ -561,18 +578,15 @@ usersTable.addEventListener("click", async (e) => {
 
   if (resetBtn) {
     const userId = resetBtn.getAttribute("data-reset-id");
-    const password = prompt(`New password for "${resetBtn.dataset.user}" (min 8 chars):`);
-    if (!password) return;
-    if (password.length < 8) {
-      alert("Password must be at least 8 characters");
-      return;
-    }
+    if (!confirm(`Generate a new password for "${resetBtn.dataset.user}"?`)) return;
     try {
-      await api(`/api/admin/users/${userId}/password`, {
+      const data = await api(`/api/admin/users/${userId}/password`, {
         method: "PATCH",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ generatePassword: true }),
       });
-      alert("Password updated");
+      alert(
+        `Password updated for "${resetBtn.dataset.user}".\n\nTemporary password:\n${data.temporaryPassword}\n\nShare it once, then ask them to change it in Settings.`
+      );
     } catch (err) {
       alert(err.message);
     }

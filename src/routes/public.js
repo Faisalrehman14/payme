@@ -15,8 +15,24 @@ const {
 const { normalizeOfficeSlug } = require("../utils/office-slug");
 const { syncPaymentRecord } = require("../services/payment-sync");
 const { getSyncStatus } = require("../worker/sync-worker");
+const { createRateLimiter } = require("../middleware/rate-limit");
+const { getClientIp } = require("../middleware/auth");
 
 const router = express.Router();
+
+const invoiceLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 20,
+  keyFn: (req) => getClientIp(req),
+  message: "Too many invoice requests. Please wait a minute.",
+});
+
+const statusLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 120,
+  keyFn: (req) => getClientIp(req),
+  message: "Too many status checks. Please wait.",
+});
 
 router.get("/settings/landing", async (_req, res) => {
   try {
@@ -91,7 +107,7 @@ router.get("/price", async (_req, res) => {
   }
 });
 
-router.post("/invoice", async (req, res) => {
+router.post("/invoice", invoiceLimiter, async (req, res) => {
   if (!requireCredentials(res)) return;
 
   try {
@@ -174,7 +190,7 @@ router.post("/invoice", async (req, res) => {
   }
 });
 
-router.get("/invoice/:hash/status", async (req, res) => {
+router.get("/invoice/:hash/status", statusLimiter, async (req, res) => {
   if (!requireCredentials(res)) return;
 
   try {

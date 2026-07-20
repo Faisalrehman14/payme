@@ -8,17 +8,18 @@ if (!globalThis.crypto) {
 
 const db = require("./db");
 const { createApp } = require("./src/app");
-const { PORT } = require("./src/config");
-const { parseNwcUrl } = require("./src/services/nwc");
-const { startSyncWorker } = require("./src/worker/sync-worker");
+const { PORT, IS_PRODUCTION } = require("./src/config");
+const { parseNwcUrl, hasCredentials, getPlatformWalletBalance } = require("./src/services/nwc");
+const { startSyncWorker, stopSyncWorker } = require("./src/worker/sync-worker");
 const { syncAllLedgers } = require("./src/services/ledger-sync");
+const { assertStartupConfigOrExit } = require("./src/services/bootstrap");
 
 async function start() {
+  const boot = assertStartupConfigOrExit();
+
   try {
     await db.init();
-    const adminUser = process.env.ADMIN_USERNAME || "admin";
-    const adminPass = process.env.ADMIN_PASSWORD || "admin123";
-    await db.seedAdmin(adminUser, adminPass);
+    await db.seedAdmin(boot.adminUser, boot.adminPass);
 
     try {
       const ledger = await syncAllLedgers();
@@ -26,42 +27,59 @@ async function start() {
     } catch (err) {
       console.warn("Ledger sync warning:", err.message);
     }
-
-    if (
-      (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT) &&
-      adminPass === "admin123"
-    ) {
-      console.warn("? SECURITY: Change ADMIN_PASSWORD from default in production!");
-    }
   } catch (err) {
     console.error("Database startup failed:", err.message);
     process.exit(1);
   }
 
   const app = createApp();
+  const server = app.listen(PORT, async () => {
+    console.log(`? Globa Pay listening on :${PORT}`);
+    console.log(`  Mode: ${IS_PRODUCTION ? "production" : "development"}`);
+    console.log(`  Admin: /admin`);
+    console.log(`  Office: /dashboard`);
 
-  app.listen(PORT, () => {
-    console.log(`Globa Pay running ? http://localhost:${PORT}`);
-    console.log(`Admin portal ? http://localhost:${PORT}/admin`);
-    console.log(`Office dashboard ? http://localhost:${PORT}/dashboard`);
-
-    const nwc = parseNwcUrl(process.env.NWC_URL || "");
-    if (nwc.valid) {
-      console.log("? NWC_URL configured");
-    } else if (process.env.NWC_URL) {
-      console.log("? NWC_URL error:", nwc.error);
-    } else {
-      console.log("? Add NWC_URL to environment variables");
+    if (process.env.PUBLIC_BASE_URL) {
+      console.log(`  Public URL: ${process.env.PUBLIC_BASE_URL}`);
+    }
+    if (process.env.DATABASE_URL) {
+      console.log("? PostgreSQL configured");
+    }
+    if (hasCredentials()) {
+      console.log("? Payment provider configured");
+      try {
+        const wallet = await getPlatformWalletBalance();
+        if (wallet.ok && wallet.balanceSats != null) {
+          console.log(`? Wallet liquidity: ${wallet.balanceSats.toLocaleString()} sats`);
+        }
+      } catch {
+        // non-fatal at boot
+      }
     }
 
-    if (process.env.DATABASE_URL) {
-      console.log("? DATABASE_URL configured (PostgreSQL)");
-    } else {
-      console.log("? Using JSON storage — add DATABASE_URL on Railway");
+    const nwc = parseNwcUrl(process.env.NWC_URL || "");
+    if (process.env.NWC_URL && !nwc.valid) {
+      console.warn("? NWC_URL:", nwc.error);
     }
   });
 
   startSyncWorker();
+
+  function shutdown(signal) {
+    console.log(`${signal} received — shutting down…`);
+    stopSyncWorker();
+    server.close(() => {
+      console.log("HTTP server closed");
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10_000).unref();
+  }
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-start();
+start().catch((err) => {
+  console.error("Fatal startup error:", err);
+  process.exit(1);
+});

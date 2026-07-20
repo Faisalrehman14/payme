@@ -634,8 +634,8 @@ updatePasswordBtn.addEventListener("click", async () => {
     passwordMsg.textContent = "New passwords do not match";
     return;
   }
-  if (newPassword.value.length < 8) {
-    passwordMsg.textContent = "New password must be at least 8 characters";
+  if (newPassword.value.length < 10) {
+    passwordMsg.textContent = "New password must be at least 10 characters";
     return;
   }
   try {

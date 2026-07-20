@@ -7,6 +7,11 @@ const { syncOfficePayments } = require("../services/payment-sync");
 const { parseNwcUrl, testPaymentProvider, getPlatformWalletBalance } = require("../services/nwc");
 const { getSyncStatus } = require("../worker/sync-worker");
 const { getLedgerBalance } = require("../services/ledger-sync");
+const {
+  validatePasswordStrength,
+  validateUsername,
+  generateOfficePassword,
+} = require("../utils/password");
 
 const router = express.Router();
 
@@ -220,14 +225,26 @@ router.get("/users", requireAuth, requireAdmin, async (req, res) => {
 
 router.post("/users", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { username, password, officeId } = req.body || {};
-    if (!username || !password || !officeId) {
-      return res.status(400).json({ error: "Username, password, and office required" });
+    const { username, password, officeId, generatePassword } = req.body || {};
+    if (!username || !officeId) {
+      return res.status(400).json({ error: "Username and office required" });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+    const usernameCheck = validateUsername(username);
+    if (!usernameCheck.ok) {
+      return res.status(400).json({ error: usernameCheck.error });
     }
-    const user = await db.createOfficeUser(username.trim(), password, officeId);
+
+    let plainPassword = password;
+    if (generatePassword || !plainPassword) {
+      plainPassword = generateOfficePassword();
+    }
+    const strength = validatePasswordStrength(plainPassword, { minLength: 10 });
+    if (!strength.ok) {
+      return res.status(400).json({ error: strength.error });
+    }
+
+    const user = await db.createOfficeUser(usernameCheck.username, plainPassword, officeId);
     const office = await db.getOfficeById(officeId);
     await logAudit(req, "user.create", {
       targetType: "user",
@@ -242,24 +259,34 @@ router.post("/users", requireAuth, requireAdmin, async (req, res) => {
         officeSlug: office?.slug || null,
         payLink: office ? `${reqBaseUrl(req)}/pay/${office.slug}` : null,
       },
+      // Shown once so admin can share credentials with the office
+      temporaryPassword: plainPassword,
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
+router.post("/users/generate-password", requireAuth, requireAdmin, async (_req, res) => {
+  res.json({ password: generateOfficePassword() });
+});
+
 router.patch("/users/:id/password", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { password } = req.body || {};
-    if (!password || password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    let { password, generatePassword } = req.body || {};
+    if (generatePassword || !password) {
+      password = generateOfficePassword();
+    }
+    const strength = validatePasswordStrength(password, { minLength: 10 });
+    if (!strength.ok) {
+      return res.status(400).json({ error: strength.error });
     }
     await db.updateOfficeUserPassword(req.params.id, password);
     await logAudit(req, "user.password_reset", {
       targetType: "user",
       targetId: req.params.id,
     });
-    res.json({ ok: true });
+    res.json({ ok: true, temporaryPassword: password });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

@@ -9,6 +9,7 @@ const {
   requestOfficePayout,
 } = require("../services/payouts");
 const { logAudit } = require("../services/audit");
+const { validatePasswordStrength } = require("../utils/password");
 
 const router = express.Router();
 
@@ -131,8 +132,9 @@ router.patch("/password", requireAuth, requireOffice, async (req, res) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Current and new password required" });
     }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: "New password must be at least 8 characters" });
+    const strength = validatePasswordStrength(newPassword, { minLength: 10 });
+    if (!strength.ok) {
+      return res.status(400).json({ error: strength.error });
     }
     const user = await db.findUserByUsername(req.user.username);
     if (!user || !db.verifyPassword(currentPassword, user.passwordHash)) {

@@ -73,11 +73,23 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-function requireOffice(req, res, next) {
-  if (req.user.role !== "office") {
-    return res.status(403).json({ error: "Office login required" });
+async function requireOffice(req, res, next) {
+  try {
+    if (req.user.role !== "office") {
+      return res.status(403).json({ error: "Office login required" });
+    }
+    if (!req.user.officeId) {
+      return res.status(403).json({ error: "Office account is not linked" });
+    }
+    const office = await db.getOfficeById(req.user.officeId);
+    if (!office || office.active === false) {
+      return res.status(403).json({ error: "This office is deactivated. Contact admin." });
+    }
+    req.office = office;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: "Could not verify office access" });
   }
-  next();
 }
 
 function getClientIp(req) {

@@ -1,12 +1,15 @@
 {
   "name": "lightning-pay",
   "version": "1.0.0",
-  "description": "Lightning payment checkout page",
+  "description": "Globa Pay — multi-office Cash App / Lightning payments",
   "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/ledger.test.js && node test/ledger-integration.test.js"
+    "test": "node test/ledger.test.js && node test/ledger-integration.test.js && node test/password.test.js"
   },
   "dependencies": {
     "@getalby/lightning-tools": "^8.2.0",
