@@ -4,6 +4,7 @@ const { payBolt11Invoice, hasCredentials } = require("./nwc");
 
 const MIN_PAYOUT_USD = 1;
 const STALE_PENDING_MS = 10 * 60 * 1000;
+const MAX_INVOICE_LENGTH = 4000;
 
 function normalizeBolt11(invoice) {
   return String(invoice || "")
@@ -11,24 +12,33 @@ function normalizeBolt11(invoice) {
     .trim();
 }
 
+function roundUsd(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
 async function fetchBtcPriceUsd() {
   const priceRes = await fetch("https://mempool.space/api/v1/prices");
   const priceData = await priceRes.json();
   const btcPrice = Number(priceData.USD || priceData.usd);
-  if (!btcPrice || !Number.isFinite(btcPrice)) {
+  if (!btcPrice || !Number.isFinite(btcPrice) || btcPrice <= 0) {
     throw new Error("Could not fetch BTC price");
   }
   return btcPrice;
 }
 
 function satsToUsd(sats, btcPrice) {
-  return Math.round(((Number(sats) / 100_000_000) * btcPrice) * 100) / 100;
+  return roundUsd((Number(sats) / 100_000_000) * btcPrice);
+}
+
+function availableSatsFromBalance(availableUsd, btcPrice) {
+  return Math.floor((availableUsd / btcPrice) * 100_000_000);
 }
 
 function isInvoiceExpired(decoded) {
   if (!decoded?.timestamp || decoded.expiry == null) return false;
   const expiresAtMs = (Number(decoded.timestamp) + Number(decoded.expiry)) * 1000;
-  return Date.now() >= expiresAtMs;
+  // 30s clock skew buffer
+  return Date.now() >= expiresAtMs - 30_000;
 }
 
 async function ensurePayoutsEnabled(officeId) {
@@ -53,6 +63,7 @@ async function listOfficePayouts(officeId, limit = 100) {
 /**
  * Office requests withdrawal by pasting a Lightning invoice.
  * Amount is taken from the invoice; deducted from available office balance on success.
+ * Available = (earned × (100 − commission%)) − withdrawn − pending.
  */
 async function requestOfficePayout({ officeId, userId, invoice }) {
   if (!hasCredentials()) {
@@ -64,7 +75,10 @@ async function requestOfficePayout({ officeId, userId, invoice }) {
   await ensurePayoutsEnabled(officeId);
 
   const bolt11 = normalizeBolt11(invoice);
-  if (!bolt11.toLowerCase().startsWith("ln")) {
+  if (!bolt11 || bolt11.length > MAX_INVOICE_LENGTH) {
+    throw new Error("Paste a valid Lightning invoice");
+  }
+  if (!/^ln[a-z0-9]+$/i.test(bolt11)) {
     throw new Error("Paste a valid Lightning invoice (starts with lnbc…)");
   }
 
@@ -79,11 +93,6 @@ async function requestOfficePayout({ officeId, userId, invoice }) {
     throw new Error("This Lightning invoice has expired — create a new one");
   }
 
-  const existing = await db.getPayoutByPaymentHash(decoded.paymentHash);
-  if (existing) {
-    throw new Error("This invoice was already used for a payout");
-  }
-
   const btcPrice = await fetchBtcPriceUsd();
   const amountSats = Math.round(Number(decoded.satoshi));
   const amountUsd = satsToUsd(amountSats, btcPrice);
@@ -92,24 +101,27 @@ async function requestOfficePayout({ officeId, userId, invoice }) {
     throw new Error(`Minimum payout is $${MIN_PAYOUT_USD.toFixed(2)}`);
   }
 
-  await db.failStalePendingPayouts(officeId, STALE_PENDING_MS);
-  const balance = await db.getOfficePayoutBalance(officeId);
-  if (amountUsd > balance.availableUsd + 0.009) {
+  // Pre-check (UX). Authoritative check is inside createPayoutIfSufficient.
+  const preview = await getPayoutBalance(officeId);
+  const maxSats = availableSatsFromBalance(preview.availableUsd, btcPrice);
+  if (amountSats > maxSats || amountUsd > preview.availableUsd + 0.009) {
     throw new Error(
-      `Insufficient balance. Available: $${balance.availableUsd.toFixed(2)}, requested: $${amountUsd.toFixed(2)}`
+      `Insufficient balance. Available: $${preview.availableUsd.toFixed(2)} (max ~${maxSats.toLocaleString()} sats). Invoice is for $${amountUsd.toFixed(2)}.`
     );
   }
 
-  const payout = await db.createPayout({
-    officeId,
-    userId,
-    paymentHash: decoded.paymentHash,
-    invoice: bolt11,
-    amountUsd,
-    amountSats,
-    btcPrice,
-    status: "pending",
-  });
+  const { payout } = await db.createPayoutIfSufficient(
+    {
+      officeId,
+      userId,
+      paymentHash: decoded.paymentHash,
+      invoice: bolt11,
+      amountUsd,
+      amountSats,
+      btcPrice,
+    },
+    { stalePendingMs: STALE_PENDING_MS }
+  );
 
   try {
     const paid = await payBolt11Invoice(bolt11);

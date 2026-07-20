@@ -59,7 +59,7 @@ function setLoading() {
     .map(() => `<div class="stat-card skeleton-card"><div class="skeleton"></div></div>`)
     .join("");
   recentPaymentsTable.innerHTML = skeletonRows(5);
-  officesTable.innerHTML = skeletonRows(9);
+  officesTable.innerHTML = skeletonRows(10);
   usersTable.innerHTML = skeletonRows(5);
   paymentsTable.innerHTML = skeletonRows(5);
   if (adminPayoutsTable) adminPayoutsTable.innerHTML = skeletonRows(5);
@@ -230,6 +230,15 @@ function renderOffices(offices) {
       </td>
       <td>
         <div class="inline-actions">
+          <strong>${Number(o.commissionPercent || 0).toFixed(1)}%</strong>
+          <button class="btn btn-secondary btn-sm" type="button" data-set-commission="${o.id}" data-commission="${Number(o.commissionPercent || 0)}" data-office-name="${o.name}">
+            Set %
+          </button>
+        </div>
+        <div class="sub" style="margin-top:6px">Office keeps ${(100 - Number(o.commissionPercent || 0)).toFixed(1)}%</div>
+      </td>
+      <td>
+        <div class="inline-actions">
           ${payoutEnabledBadge(o.payoutsEnabled === true)}
           <button class="btn btn-secondary btn-sm" type="button" data-toggle-payouts="${o.id}" data-enabled="${o.payoutsEnabled === true}">
             ${o.payoutsEnabled === true ? "Disable" : "Enable"}
@@ -246,7 +255,7 @@ function renderOffices(offices) {
       </td>
     </tr>`
     )
-    .join("") || `<tr><td colspan="9">No offices yet — create your first office above.</td></tr>`;
+    .join("") || `<tr><td colspan="10">No offices yet — create your first office above.</td></tr>`;
 }
 
 function renderUsers(users) {
@@ -481,6 +490,33 @@ officesTable.addEventListener("click", async (e) => {
       await api(`/api/admin/offices/${officeId}/payouts`, {
         method: "PATCH",
         body: JSON.stringify({ enabled: !currentlyEnabled }),
+      });
+      await loadAll({ showLoading: false });
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+
+  const commissionBtn = e.target.closest("[data-set-commission]");
+  if (commissionBtn) {
+    const officeId = commissionBtn.dataset.setCommission;
+    const officeName = commissionBtn.dataset.officeName || "office";
+    const current = commissionBtn.dataset.commission || "0";
+    const input = prompt(
+      `Platform fee % for "${officeName}" (0–100).\nExample: 15 means office can withdraw 85% of earned payments.`,
+      current
+    );
+    if (input === null) return;
+    const pct = Number(input);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      alert("Enter a number between 0 and 100");
+      return;
+    }
+    try {
+      await api(`/api/admin/offices/${officeId}/commission`, {
+        method: "PATCH",
+        body: JSON.stringify({ commissionPercent: pct }),
       });
       await loadAll({ showLoading: false });
     } catch (err) {

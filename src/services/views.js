@@ -5,6 +5,7 @@ function officePublicView(office) {
     slug: office.slug,
     active: office.active !== false,
     payoutsEnabled: office.payoutsEnabled === true,
+    commissionPercent: Number(office.commissionPercent) || 0,
   };
 }
 

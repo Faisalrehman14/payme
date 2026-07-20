@@ -222,6 +222,7 @@ async function createOffice(name, slug) {
     slug: cleanSlug,
     active: true,
     payoutsEnabled: false,
+    commissionPercent: 0,
     createdAt: new Date().toISOString(),
   };
 
@@ -252,8 +253,69 @@ async function updateOfficePayoutsEnabled(officeId, enabled) {
   return { ...office, payoutsEnabled: Boolean(enabled) };
 }
 
+async function updateOfficeCommission(officeId, commissionPercent) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const pct = Number(commissionPercent);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+    throw new Error("Commission must be between 0 and 100");
+  }
+  const rounded = Math.round(pct * 100) / 100;
+  updateDb((d) => {
+    const idx = d.offices.findIndex((o) => o.id === officeId);
+    if (idx !== -1) d.offices[idx].commissionPercent = rounded;
+  });
+  return { ...office, commissionPercent: rounded };
+}
+
+function roundUsd(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+function buildPayoutBalance({ totalEarnedUsd, totalWithdrawnUsd, pendingUsd, commissionPercent }) {
+  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
+  const earned = roundUsd(totalEarnedUsd);
+  const withdrawn = roundUsd(totalWithdrawnUsd);
+  const pending = roundUsd(pendingUsd);
+  const platformFeeUsd = roundUsd((earned * pct) / 100);
+  const netEarnedUsd = roundUsd(earned - platformFeeUsd);
+  const availableUsd = Math.max(0, roundUsd(netEarnedUsd - withdrawn - pending));
+  return {
+    totalEarnedUsd: earned,
+    commissionPercent: pct,
+    platformFeeUsd,
+    netEarnedUsd,
+    totalWithdrawnUsd: withdrawn,
+    pendingUsd: pending,
+    availableUsd,
+  };
+}
+
+const payoutLocks = new Map();
+
+async function withOfficePayoutLock(officeId, fn) {
+  const prev = payoutLocks.get(officeId) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => {
+    release = resolve;
+  });
+  payoutLocks.set(
+    officeId,
+    prev.finally(() => current)
+  );
+  await prev.catch(() => {});
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
 async function getOfficePayoutBalance(officeId) {
   const db = readDb();
+  const office = db.offices.find((o) => o.id === officeId);
+  if (!office) throw new Error("Office not found");
+
   const payments = (db.payments || []).filter(
     (p) => p.officeId === officeId && p.status === "paid"
   );
@@ -266,17 +328,13 @@ async function getOfficePayoutBalance(officeId) {
   const pendingUsd = payouts
     .filter((p) => p.status === "pending")
     .reduce((sum, p) => sum + (Number(p.amountUsd) || 0), 0);
-  const availableUsd = Math.max(
-    0,
-    Math.round((totalEarnedUsd - totalWithdrawnUsd - pendingUsd) * 100) / 100
-  );
 
-  return {
-    totalEarnedUsd: Math.round(totalEarnedUsd * 100) / 100,
-    totalWithdrawnUsd: Math.round(totalWithdrawnUsd * 100) / 100,
-    pendingUsd: Math.round(pendingUsd * 100) / 100,
-    availableUsd,
-  };
+  return buildPayoutBalance({
+    totalEarnedUsd,
+    totalWithdrawnUsd,
+    pendingUsd,
+    commissionPercent: office.commissionPercent || 0,
+  });
 }
 
 async function failStalePendingPayouts(officeId, olderThanMs) {
@@ -293,6 +351,28 @@ async function failStalePendingPayouts(officeId, olderThanMs) {
         p.errorMessage = p.errorMessage || "Timed out — please try again";
       }
     }
+  });
+}
+
+async function createPayoutIfSufficient(record, { stalePendingMs = 10 * 60 * 1000 } = {}) {
+  return withOfficePayoutLock(record.officeId, async () => {
+    await failStalePendingPayouts(record.officeId, stalePendingMs);
+
+    const existing = await getPayoutByPaymentHash(record.paymentHash);
+    if (existing) {
+      throw new Error("This invoice was already used for a payout");
+    }
+
+    const balance = await getOfficePayoutBalance(record.officeId);
+    const amountUsd = roundUsd(record.amountUsd);
+    if (amountUsd > balance.availableUsd + 0.009) {
+      throw new Error(
+        `Insufficient balance. Available: $${balance.availableUsd.toFixed(2)}, requested: $${amountUsd.toFixed(2)}`
+      );
+    }
+
+    const payout = await createPayout({ ...record, amountUsd, status: "pending" });
+    return { payout, balanceBefore: balance };
   });
 }
 
@@ -606,6 +686,7 @@ module.exports = {
   createOffice,
   updateOfficeActive,
   updateOfficePayoutsEnabled,
+  updateOfficeCommission,
   deleteOffice,
   getDashboardStats,
   getMonthlyStats,
@@ -623,6 +704,7 @@ module.exports = {
   getOfficePayoutBalance,
   failStalePendingPayouts,
   createPayout,
+  createPayoutIfSufficient,
   updatePayout,
   getPayoutByPaymentHash,
   listPayoutsForOffice,

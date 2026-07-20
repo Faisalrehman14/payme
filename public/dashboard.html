@@ -224,7 +224,7 @@
                 <div class="stat-icon green">$</div>
               </div>
               <div class="stat-value" id="payoutAvailable">$0.00</div>
-              <div class="stat-sub">Ready to withdraw</div>
+              <div class="stat-sub" id="payoutAvailableSub">After platform fee</div>
             </div>
             <div class="stat-card">
               <div class="stat-card-top">
@@ -233,6 +233,14 @@
               </div>
               <div class="stat-value" id="payoutEarned">$0.00</div>
               <div class="stat-sub">All paid customer payments</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-top">
+                <div class="stat-label">Platform Fee</div>
+                <div class="stat-icon purple">%</div>
+              </div>
+              <div class="stat-value" id="payoutFee">$0.00</div>
+              <div class="stat-sub" id="payoutFeeSub">0% platform fee</div>
             </div>
             <div class="stat-card">
               <div class="stat-card-top">
@@ -249,7 +257,7 @@
               <h2>Request Payout</h2>
             </div>
             <p class="sub payout-help">
-              Create a Lightning invoice in your wallet for the amount you want (up to your available balance), then paste it below.
+              Create a Lightning invoice for an amount <strong>not greater than your available balance</strong>, then paste it below. Larger invoices are rejected.
             </p>
             <label class="field-label" for="payoutInvoice">Lightning Invoice</label>
             <textarea

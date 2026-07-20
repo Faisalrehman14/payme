@@ -130,6 +130,7 @@ function mapOffice(row) {
     slug: row.slug,
     active: row.active,
     payoutsEnabled: row.payouts_enabled === true,
+    commissionPercent: Number(row.commission_percent) || 0,
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -470,14 +471,59 @@ async function updateOfficePayoutsEnabled(officeId, enabled) {
   return mapOffice(rows[0]);
 }
 
-async function getOfficePayoutBalance(officeId) {
+async function updateOfficeCommission(officeId, commissionPercent) {
+  const office = await getOfficeById(officeId);
+  if (!office) throw new Error("Office not found");
+  const pct = Number(commissionPercent);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+    throw new Error("Commission must be between 0 and 100");
+  }
+  const rounded = Math.round(pct * 100) / 100;
+  const { rows } = await pool.query(
+    `UPDATE offices SET commission_percent = $1 WHERE id = $2 RETURNING *`,
+    [rounded, officeId]
+  );
+  return mapOffice(rows[0]);
+}
+
+function roundUsd(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+function buildPayoutBalance({ totalEarnedUsd, totalWithdrawnUsd, pendingUsd, commissionPercent }) {
+  const pct = Math.min(100, Math.max(0, Number(commissionPercent) || 0));
+  const earned = roundUsd(totalEarnedUsd);
+  const withdrawn = roundUsd(totalWithdrawnUsd);
+  const pending = roundUsd(pendingUsd);
+  const platformFeeUsd = roundUsd((earned * pct) / 100);
+  const netEarnedUsd = roundUsd(earned - platformFeeUsd);
+  const availableUsd = Math.max(0, roundUsd(netEarnedUsd - withdrawn - pending));
+  return {
+    totalEarnedUsd: earned,
+    commissionPercent: pct,
+    platformFeeUsd,
+    netEarnedUsd,
+    totalWithdrawnUsd: withdrawn,
+    pendingUsd: pending,
+    availableUsd,
+  };
+}
+
+async function getOfficePayoutBalance(officeId, client = null) {
+  const q = client ? client.query.bind(client) : pool.query.bind(pool);
+  const officeRes = await q(
+    "SELECT commission_percent FROM offices WHERE id = $1 LIMIT 1",
+    [officeId]
+  );
+  if (!officeRes.rows.length) throw new Error("Office not found");
+
   const [paidRes, payoutRes] = await Promise.all([
-    pool.query(
+    q(
       `SELECT COALESCE(SUM(amount_usd), 0)::float AS total
        FROM payments WHERE office_id = $1 AND status = 'paid'`,
       [officeId]
     ),
-    pool.query(
+    q(
       `SELECT
          COALESCE(SUM(amount_usd) FILTER (WHERE status = 'paid'), 0)::float AS withdrawn,
          COALESCE(SUM(amount_usd) FILTER (WHERE status = 'pending'), 0)::float AS pending
@@ -486,25 +532,18 @@ async function getOfficePayoutBalance(officeId) {
     ),
   ]);
 
-  const totalEarnedUsd = Number(paidRes.rows[0]?.total || 0);
-  const totalWithdrawnUsd = Number(payoutRes.rows[0]?.withdrawn || 0);
-  const pendingUsd = Number(payoutRes.rows[0]?.pending || 0);
-  const availableUsd = Math.max(
-    0,
-    Math.round((totalEarnedUsd - totalWithdrawnUsd - pendingUsd) * 100) / 100
-  );
-
-  return {
-    totalEarnedUsd: Math.round(totalEarnedUsd * 100) / 100,
-    totalWithdrawnUsd: Math.round(totalWithdrawnUsd * 100) / 100,
-    pendingUsd: Math.round(pendingUsd * 100) / 100,
-    availableUsd,
-  };
+  return buildPayoutBalance({
+    totalEarnedUsd: Number(paidRes.rows[0]?.total || 0),
+    totalWithdrawnUsd: Number(payoutRes.rows[0]?.withdrawn || 0),
+    pendingUsd: Number(payoutRes.rows[0]?.pending || 0),
+    commissionPercent: Number(officeRes.rows[0].commission_percent) || 0,
+  });
 }
 
-async function failStalePendingPayouts(officeId, olderThanMs) {
+async function failStalePendingPayouts(officeId, olderThanMs, client = null) {
+  const q = client ? client.query.bind(client) : pool.query.bind(pool);
   const cutoff = new Date(Date.now() - olderThanMs);
-  await pool.query(
+  await q(
     `UPDATE payouts
      SET status = 'failed',
          error_message = COALESCE(error_message, 'Timed out — please try again')
@@ -513,6 +552,66 @@ async function failStalePendingPayouts(officeId, olderThanMs) {
        AND created_at < $2`,
     [officeId, cutoff.toISOString()]
   );
+}
+
+/**
+ * Atomically reserve a payout against available balance (office row locked).
+ * Prevents concurrent over-withdrawal.
+ */
+async function createPayoutIfSufficient(record, { stalePendingMs = 10 * 60 * 1000 } = {}) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT id FROM offices WHERE id = $1 FOR UPDATE", [record.officeId]);
+
+    await failStalePendingPayouts(record.officeId, stalePendingMs, client);
+
+    const dup = await client.query(
+      "SELECT id FROM payouts WHERE payment_hash = $1 LIMIT 1",
+      [record.paymentHash]
+    );
+    if (dup.rows.length) {
+      throw new Error("This invoice was already used for a payout");
+    }
+
+    const balance = await getOfficePayoutBalance(record.officeId, client);
+    const amountUsd = roundUsd(record.amountUsd);
+    if (amountUsd > balance.availableUsd + 0.009) {
+      throw new Error(
+        `Insufficient balance. Available: $${balance.availableUsd.toFixed(2)}, requested: $${amountUsd.toFixed(2)}`
+      );
+    }
+
+    const id = crypto.randomUUID();
+    const { rows } = await client.query(
+      `INSERT INTO payouts (
+         id, office_id, user_id, payment_hash, invoice,
+         amount_usd, amount_sats, btc_price, status
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending')
+       RETURNING *`,
+      [
+        id,
+        record.officeId,
+        record.userId || null,
+        record.paymentHash,
+        record.invoice,
+        amountUsd,
+        record.amountSats,
+        record.btcPrice ?? null,
+      ]
+    );
+    await client.query("COMMIT");
+    return { payout: mapPayout(rows[0]), balanceBefore: balance };
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // ignore rollback errors
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function createPayout(record) {
@@ -957,6 +1056,7 @@ module.exports = {
   createOffice,
   updateOfficeActive,
   updateOfficePayoutsEnabled,
+  updateOfficeCommission,
   deleteOffice,
   getDashboardStats,
   getMonthlyStats,
@@ -974,6 +1074,7 @@ module.exports = {
   getOfficePayoutBalance,
   failStalePendingPayouts,
   createPayout,
+  createPayoutIfSufficient,
   updatePayout,
   getPayoutByPaymentHash,
   listPayoutsForOffice,

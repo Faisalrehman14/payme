@@ -238,6 +238,18 @@ function renderPayouts() {
   document.getElementById("payoutEarned").textContent = money(balance.totalEarnedUsd);
   document.getElementById("payoutWithdrawn").textContent = money(balance.totalWithdrawnUsd);
 
+  const feeEl = document.getElementById("payoutFee");
+  const feeSub = document.getElementById("payoutFeeSub");
+  const availSub = document.getElementById("payoutAvailableSub");
+  if (feeEl) feeEl.textContent = money(balance.platformFeeUsd || 0);
+  if (feeSub) {
+    feeSub.textContent = `${Number(balance.commissionPercent || 0).toFixed(1)}% platform fee`;
+  }
+  if (availSub) {
+    const keep = (100 - Number(balance.commissionPercent || 0)).toFixed(1);
+    availSub.textContent = `Your share (${keep}%) minus withdrawals`;
+  }
+
   const tbody = document.getElementById("payoutHistoryTable");
   tbody.innerHTML =
     (payouts || [])

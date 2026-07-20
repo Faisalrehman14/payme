@@ -136,6 +136,28 @@ router.patch("/offices/:id/payouts", requireAuth, requireAdmin, async (req, res)
   }
 });
 
+router.patch("/offices/:id/commission", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { commissionPercent } = req.body || {};
+    if (commissionPercent === undefined || commissionPercent === null) {
+      return res.status(400).json({ error: "Commission percent required" });
+    }
+    const office = await db.updateOfficeCommission(req.params.id, commissionPercent);
+    await logAudit(req, "office.commission_update", {
+      targetType: "office",
+      targetId: office.id,
+      details: {
+        name: office.name,
+        slug: office.slug,
+        commissionPercent: office.commissionPercent,
+      },
+    });
+    res.json({ office: officePublicView(office) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.get("/payouts", requireAuth, requireAdmin, async (_req, res) => {
   try {
     const offices = await db.listOffices();
