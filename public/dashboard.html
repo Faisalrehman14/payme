@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/brand.css" />
-  <link rel="stylesheet" href="/dashboard.css?v=10" />
+  <link rel="stylesheet" href="/dashboard.css?v=11" />
 </head>
 <body>
   <section id="loginSection" class="login-shell">
@@ -186,10 +186,30 @@
               </div>
             </div>
 
-            <div class="home-overview-grid">
-              <div class="home-card">
+            <div class="home-kpi-row">
+              <div class="home-kpi">
+                <span>Pending</span>
+                <strong id="pendingCount">0</strong>
+              </div>
+              <div class="home-kpi">
+                <span>Expired volume</span>
+                <strong id="homeExpiredTotal">$0.00</strong>
+              </div>
+              <div class="home-kpi">
+                <span>Avg ticket</span>
+                <strong id="homeAvgTicket">$0.00</strong>
+              </div>
+              <div class="home-kpi">
+                <span>Method</span>
+                <strong id="homeCashAppShare">Cash App</strong>
+              </div>
+            </div>
+
+            <div class="home-overview-grid home-overview-grid-v2">
+              <div class="home-card home-card-span2">
                 <div class="home-card-head tight">
                   <h3>Payments</h3>
+                  <button type="button" class="home-link" data-view-jump="history">View</button>
                 </div>
                 <div class="payments-bar" id="homePaymentsBar"></div>
                 <div class="payments-legend" id="homePaymentsLegend"></div>
@@ -213,7 +233,7 @@
                 <div class="home-chart home-chart-sm" id="homeTodayCountChart" aria-hidden="true"></div>
               </div>
 
-              <div class="home-card home-card-list">
+              <div class="home-card home-card-span2 home-card-list">
                 <div class="home-card-head tight">
                   <h3>Recent activity</h3>
                   <button type="button" class="home-link" data-view-jump="history">View all</button>
@@ -221,45 +241,28 @@
                 <div class="home-recent" id="homeRecentList"></div>
               </div>
 
-              <div class="home-card">
+              <div class="home-card home-card-span2 home-today-inline">
                 <div class="home-card-head tight">
-                  <h3>Pending</h3>
+                  <div>
+                    <h3>Today’s payments</h3>
+                    <p class="panel-desc">Settled transactions for the current day</p>
+                  </div>
                 </div>
-                <div class="home-metric" id="pendingCount">0</div>
-                <p class="home-metric-sub">Awaiting payment</p>
-              </div>
-
-              <div class="home-card">
-                <div class="home-card-head tight">
-                  <h3>Cash App</h3>
+                <input type="search" id="searchInput" class="hidden" placeholder="Filter…" />
+                <div class="table-wrap">
+                  <table class="txn-table">
+                    <thead>
+                      <tr>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Method</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody id="todayPaymentsTable"></tbody>
+                  </table>
                 </div>
-                <div class="home-metric" id="homeCashAppShare">100%</div>
-                <p class="home-metric-sub">Of succeeded payments</p>
-                <div class="method-bar home-method-bar"><span id="homeCashAppBar" style="width:100%"></span></div>
               </div>
-            </div>
-          </div>
-
-          <div class="panel home-today-table-panel">
-            <div class="panel-head">
-              <div>
-                <h2>Today’s payments</h2>
-                <p class="panel-desc">Settled transactions for the current day</p>
-              </div>
-              <input type="search" id="searchInput" class="hidden" placeholder="Filter…" />
-            </div>
-            <div class="table-wrap">
-              <table class="txn-table">
-                <thead>
-                  <tr>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Method</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody id="todayPaymentsTable"></tbody>
-              </table>
             </div>
           </div>
         </section>
@@ -656,6 +659,6 @@
     </main>
   </div>
 
-  <script src="/dashboard.js?v=10"></script>
+  <script src="/dashboard.js?v=11"></script>
 </body>
 </html>

@@ -569,15 +569,16 @@ function renderProChart(options = {}) {
     height = 140,
     mode = "area",
     formatTip = (v) => String(v),
+    showYAxis = true,
   } = options;
   const nums = values.length ? values.map((v) => Number(v) || 0) : [0, 0];
   const id = chartUid();
   const w = 560;
   const h = height;
-  const padL = 8;
-  const padR = 8;
-  const padT = 16;
-  const padB = labels.length ? 28 : 14;
+  const padL = showYAxis ? 44 : 8;
+  const padR = 10;
+  const padT = 14;
+  const padB = labels.length ? 26 : 12;
   const max = Math.max(...nums, 0.0001);
   const min = 0;
   const span = Math.max(max - min, 0.0001);
@@ -593,11 +594,27 @@ function renderProChart(options = {}) {
     label: labels[i] || "",
   }));
 
-  const grid = [0.25, 0.5, 0.75]
-    .map((t) => {
-      const y = padT + innerH * (1 - t);
-      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="currentColor" stroke-opacity="0.08" stroke-width="1" />`;
-    })
+  const yTicks = [0, 0.5, 1].map((t) => {
+    const val = min + span * t;
+    const y = padT + innerH * (1 - t);
+    const tip = formatTip(val);
+    let axisLabel = String(Math.round(val));
+    if (String(tip).startsWith("$")) {
+      axisLabel = val >= 1000 ? `$${(val / 1000).toFixed(1)}k` : `$${Math.round(val)}`;
+    }
+    return { y, axisLabel };
+  });
+
+  const grid = yTicks
+    .map(
+      ({ y, axisLabel }) => `
+      <line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="currentColor" stroke-opacity="0.08" stroke-width="1" />
+      ${
+        showYAxis
+          ? `<text x="${padL - 8}" y="${y + 3}" text-anchor="end" class="chart-axis">${axisLabel}</text>`
+          : ""
+      }`
+    )
     .join("");
 
   const baselineY = padT + innerH;
@@ -611,8 +628,8 @@ function renderProChart(options = {}) {
         const barH = Math.max(2, ((nums[i] - min) / span) * innerH);
         const y = baselineY - barH;
         const active = nums[i] > 0;
-        return `<rect class="chart-bar${active ? " is-active" : ""}" x="${x}" y="${y}" width="${barW}" height="${barH}" rx="3"
-          fill="url(#${id}bar)" fill-opacity="${active ? 1 : 0.18}">
+        return `<rect class="chart-bar${active ? " is-active" : ""}" x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2.5"
+          fill="url(#${id}bar)" fill-opacity="${active ? 1 : 0.16}">
           <title>${p.label ? `${p.label}: ` : ""}${formatTip(nums[i])}</title>
         </rect>`;
       })
@@ -624,7 +641,7 @@ function renderProChart(options = {}) {
         const show = n <= 12 || i % Math.ceil(n / 6) === 0 || i === n - 1;
         if (!show) return "";
         const x = padL + (i + 0.5) * (innerW / n);
-        return `<text x="${x}" y="${h - 8}" text-anchor="middle" class="chart-axis">${label}</text>`;
+        return `<text x="${x}" y="${h - 6}" text-anchor="middle" class="chart-axis">${label}</text>`;
       })
       .join("");
 
@@ -638,7 +655,7 @@ function renderProChart(options = {}) {
             </linearGradient>
           </defs>
           ${grid}
-          <line x1="${padL}" y1="${baselineY}" x2="${w - padR}" y2="${baselineY}" stroke="currentColor" stroke-opacity="0.12" />
+          <line x1="${padL}" y1="${baselineY}" x2="${w - padR}" y2="${baselineY}" stroke="currentColor" stroke-opacity="0.14" />
           ${bars}
           ${xLabels}
         </svg>
@@ -652,7 +669,7 @@ function renderProChart(options = {}) {
     .filter((p) => p.v > 0)
     .map(
       (p) =>
-        `<circle cx="${p.x}" cy="${p.y}" r="3.2" fill="#fff" stroke="${color}" stroke-width="2">
+        `<circle cx="${p.x}" cy="${p.y}" r="3" fill="#fff" stroke="${color}" stroke-width="2">
           <title>${p.label ? `${p.label}: ` : ""}${formatTip(p.v)}</title>
         </circle>`
     )
@@ -663,7 +680,7 @@ function renderProChart(options = {}) {
       if (!label) return "";
       const show = n <= 8 || i % Math.ceil(n / 5) === 0 || i === n - 1 || i === 0;
       if (!show) return "";
-      return `<text x="${points[i].x}" y="${h - 8}" text-anchor="middle" class="chart-axis">${label}</text>`;
+      return `<text x="${points[i].x}" y="${h - 6}" text-anchor="middle" class="chart-axis">${label}</text>`;
     })
     .join("");
 
@@ -672,22 +689,18 @@ function renderProChart(options = {}) {
       <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img">
         <defs>
           <linearGradient id="${id}fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
-            <stop offset="70%" stop-color="${color}" stop-opacity="0.06"/>
+            <stop offset="0%" stop-color="${color}" stop-opacity="0.22"/>
+            <stop offset="75%" stop-color="${color}" stop-opacity="0.05"/>
             <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
           </linearGradient>
-          <filter id="${id}glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="1.2" result="b"/>
-            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
         </defs>
         ${grid}
-        <line x1="${padL}" y1="${baselineY}" x2="${w - padR}" y2="${baselineY}" stroke="currentColor" stroke-opacity="0.12" />
+        <line x1="${padL}" y1="${baselineY}" x2="${w - padR}" y2="${baselineY}" stroke="currentColor" stroke-opacity="0.14" />
         <path d="${area}" fill="url(#${id}fill)" />
-        <path d="${line}" fill="none" stroke="${color}" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" filter="url(#${id}glow)" />
+        <path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         ${dots}
-        <circle cx="${last.x}" cy="${last.y}" r="4.5" fill="${color}" />
-        <circle cx="${last.x}" cy="${last.y}" r="8" fill="${color}" fill-opacity="0.15" />
+        <circle cx="${last.x}" cy="${last.y}" r="4" fill="${color}" />
+        <circle cx="${last.x}" cy="${last.y}" r="7.5" fill="${color}" fill-opacity="0.12" />
         ${xLabels}
       </svg>
     </div>`;
@@ -776,6 +789,7 @@ function renderHomeOverview() {
       height: 110,
       mode: "area",
       formatTip: (v) => money(v),
+      showYAxis: false,
     });
   }
   const todayCountChart = document.getElementById("homeTodayCountChart");
@@ -787,6 +801,7 @@ function renderHomeOverview() {
       height: 110,
       mode: "area",
       formatTip: (v) => `${v} txns`,
+      showYAxis: false,
     });
   }
 
@@ -800,24 +815,30 @@ function renderHomeOverview() {
   const sPct = (succeededAmt / totalAmt) * 100;
   const pPct = (pendingAmt / totalAmt) * 100;
   const ePct = (expiredAmt / totalAmt) * 100;
+  const minSeg = (pct) => (pct > 0 && pct < 2 ? 2 : pct);
 
   const bar = document.getElementById("homePaymentsBar");
   if (bar) {
     bar.innerHTML = `
-      <span class="seg succeeded" style="width:${sPct}%" title="Succeeded ${money(succeededAmt)}"></span>
-      <span class="seg pending" style="width:${pPct}%" title="Pending ${money(pendingAmt)}"></span>
-      <span class="seg expired" style="width:${ePct}%" title="Expired ${money(expiredAmt)}"></span>`;
+      <span class="seg succeeded" style="flex:${minSeg(sPct)}" title="Succeeded ${money(succeededAmt)}"></span>
+      <span class="seg pending" style="flex:${minSeg(pPct)}" title="Pending ${money(pendingAmt)}"></span>
+      <span class="seg expired" style="flex:${minSeg(ePct)}" title="Expired ${money(expiredAmt)}"></span>`;
   }
   const legend = document.getElementById("homePaymentsLegend");
   if (legend) {
     legend.innerHTML = `
-      <div><i class="dot succeeded"></i>Succeeded <em>${sPct.toFixed(0)}%</em> <strong>${money(succeededAmt)}</strong></div>
-      <div><i class="dot pending"></i>Pending <em>${pPct.toFixed(0)}%</em> <strong>${money(pendingAmt)}</strong></div>
-      <div><i class="dot expired"></i>Expired <em>${ePct.toFixed(0)}%</em> <strong>${money(expiredAmt)}</strong></div>`;
+      <div><i class="dot succeeded"></i><span>Succeeded</span><em>${sPct.toFixed(0)}%</em><strong>${money(succeededAmt)}</strong></div>
+      <div><i class="dot pending"></i><span>Pending</span><em>${pPct.toFixed(0)}%</em><strong>${money(pendingAmt)}</strong></div>
+      <div><i class="dot expired"></i><span>Expired</span><em>${ePct.toFixed(0)}%</em><strong>${money(expiredAmt)}</strong></div>`;
   }
 
   setText("pendingCountPill", `${pending.length} pending`);
-  setText("homeCashAppShare", succeeded.length ? "100%" : "0%");
+  setText("homeExpiredTotal", money(expiredAmt));
+  setText(
+    "homeAvgTicket",
+    money(succeeded.length ? succeededAmt / succeeded.length : 0)
+  );
+  setText("homeCashAppShare", "Cash App");
 
   const bal = dashboardData?.payoutBalance || payoutData?.balance;
   if (bal) {
