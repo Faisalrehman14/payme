@@ -3,18 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#1d4ed8" />
-  <meta name="description" content="Globa Pay gives every office a branded Cash App checkout link, live dashboard, and secure payouts — professional payment infrastructure for growing teams." />
-  <meta property="og:title" content="Globa Pay — Payment Infrastructure for Offices" />
-  <meta property="og:description" content="Dedicated payment links, live office dashboards, and secure Lightning settlement." />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="Globa Pay — multi-office Cash App payment infrastructure with live dashboards, fee controls, and secure payouts." />
+  <meta property="og:site_name" content="Globa Pay" />
+  <meta property="og:title" content="Globa Pay — Payment infrastructure for every office" />
+  <meta property="og:description" content="Dedicated checkout links, live office dashboards, and ledger-backed payouts." />
   <meta property="og:type" content="website" />
-  <title>Globa Pay — Payment Infrastructure for Offices</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <meta property="og:url" content="https://globa-cash.us/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <title>Globa Pay</title>
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/favicon.svg?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/brand.css" />
-  <link rel="stylesheet" href="/landing.css" />
+  <link rel="stylesheet" href="/landing.css?v=3" />
 </head>
 <body>
   <div class="landing">
@@ -28,7 +32,7 @@
       </a>
       <nav>
         <a href="#how">How it works</a>
-        <a href="#features">Features</a>
+        <a href="#product">Product</a>
         <a href="#security">Security</a>
         <a href="#faq">FAQ</a>
         <a href="/dashboard" class="btn btn-outline nav-login">Office Login</a>
@@ -36,61 +40,90 @@
     </header>
 
     <section class="hero-landing">
-      <div class="hero-copy">
-        <p class="brand-hero-name">Globa Pay</p>
-        <h1>Payment infrastructure built for every office.</h1>
-        <p class="hero-lead">
-          Give each location a dedicated Cash App checkout link and a live dashboard — with fees, payouts, and settlement handled centrally.
-        </p>
-        <div class="hero-actions">
-          <a href="#contact" class="btn btn-primary">Request office setup</a>
-          <a href="/dashboard" class="btn btn-outline">Staff portal</a>
-        </div>
-        <ul class="hero-trust-list">
-          <li>Encrypted staff sessions</li>
-          <li>Live payment sync</li>
-          <li>Ledger-backed balances</li>
-        </ul>
-      </div>
-
-      <div class="hero-visual" aria-hidden="true">
-        <div class="hero-glow"></div>
-        <div class="pay-mock">
-          <div class="pay-mock-top">
-            <div class="pay-mock-brand">
-              <span class="pay-mock-mark">G</span>
-              <span>Cash App checkout</span>
+      <div class="hero-stage">
+        <div class="hero-copy">
+          <p class="hero-kicker">Multi-office payment operations</p>
+          <h1 class="brand-display">Globa Pay</h1>
+          <p class="hero-tagline">Payment infrastructure built for every office.</p>
+          <p class="hero-lead">
+            One platform to issue Cash App checkout links, track live revenue by location, set fees, and approve withdrawals — with settlement handled centrally.
+          </p>
+          <div class="hero-actions">
+            <a href="#contact" class="btn btn-primary">Request office setup</a>
+            <a href="/dashboard" class="btn btn-outline">Open staff portal</a>
+          </div>
+          <div class="hero-assurance">
+            <div>
+              <strong>TLS + secure sessions</strong>
+              <span>Staff portals protected end-to-end</span>
             </div>
-            <span class="pay-mock-secure">Secure</span>
+            <div>
+              <strong>Ledger balances</strong>
+              <span>Credits, holds, and payouts recorded</span>
+            </div>
+            <div>
+              <strong>Admin-gated payouts</strong>
+              <span>Enable withdrawals only when ready</span>
+            </div>
           </div>
-          <div class="pay-mock-amount">$50.00</div>
-          <div class="pay-mock-chips">
-            <span>$10</span><span class="on">$50</span><span>$100</span>
+        </div>
+
+        <div class="hero-visual" aria-hidden="true">
+          <div class="hero-glow"></div>
+          <div class="hero-stack">
+            <div class="dash-mock">
+              <div class="dash-mock-bar">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <em>Office dashboard</em>
+              </div>
+              <div class="dash-mock-grid">
+                <div>
+                  <small>Today</small>
+                  <strong>$428.00</strong>
+                </div>
+                <div>
+                  <small>This month</small>
+                  <strong>$12,640</strong>
+                </div>
+                <div>
+                  <small>Available</small>
+                  <strong>$1,085</strong>
+                </div>
+              </div>
+              <div class="dash-mock-row"><span>Payment</span><span class="ok">Completed</span></div>
+              <div class="dash-mock-row"><span>Payment</span><span class="ok">Completed</span></div>
+              <div class="dash-mock-row"><span>Payout</span><span class="wait">Pending</span></div>
+            </div>
+            <div class="pay-mock">
+              <div class="pay-mock-top">
+                <div class="pay-mock-brand">
+                  <span class="pay-mock-mark">G</span>
+                  <span>Cash App checkout</span>
+                </div>
+                <span class="pay-mock-secure">Secure</span>
+              </div>
+              <div class="pay-mock-amount">$50.00</div>
+              <div class="pay-mock-chips">
+                <span>$10</span><span class="on">$50</span><span>$100</span>
+              </div>
+              <div class="pay-mock-btn">Continue to pay</div>
+              <p class="pay-mock-foot">Secured by Globa Pay</p>
+            </div>
           </div>
-          <div class="pay-mock-btn">Continue to pay</div>
-          <p class="pay-mock-foot">Secured by Globa Pay</p>
         </div>
       </div>
     </section>
 
-    <section class="proof-strip">
-      <div class="proof-inner">
-        <div>
-          <strong>Multi-office</strong>
-          <span>Separate links &amp; ledgers per location</span>
-        </div>
-        <div>
-          <strong>Cash App ready</strong>
-          <span>Customer-friendly mobile checkout</span>
-        </div>
-        <div>
-          <strong>Admin control</strong>
-          <span>Fees, access, and payout permissions</span>
-        </div>
-        <div>
-          <strong>Always-on sync</strong>
-          <span>Payments settle into office dashboards</span>
-        </div>
+    <section class="operator-bar">
+      <div class="operator-inner">
+        <p>Built for operators running multiple locations</p>
+        <ul>
+          <li>Office portals</li>
+          <li>Live payment sync</li>
+          <li>Fee controls</li>
+          <li>Approved payouts</li>
+          <li>Audit history</li>
+        </ul>
       </div>
     </section>
 
@@ -104,56 +137,85 @@
         <article>
           <span class="process-num">01</span>
           <h3>Provision the office</h3>
-          <p>Admin creates the office, staff login, fee %, and payment link.</p>
+          <p>Create the office, staff login, fee %, and dedicated payment link from admin.</p>
         </article>
         <article>
           <span class="process-num">02</span>
           <h3>Share checkout</h3>
-          <p>Customers open `/pay/your-office`, enter an amount, and pay in Cash App.</p>
+          <p>Customers open the office link, enter an amount, and pay in Cash App.</p>
         </article>
         <article>
           <span class="process-num">03</span>
           <h3>Track live</h3>
-          <p>Office dashboard updates with revenue, history, and monthly reports.</p>
+          <p>Office dashboards update with revenue, history, and monthly exports.</p>
         </article>
         <article>
           <span class="process-num">04</span>
           <h3>Withdraw securely</h3>
-          <p>Enabled offices withdraw available balance via Lightning invoice — never more than their share.</p>
+          <p>Approved offices withdraw available balance via Lightning — never above their share.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section product-section" id="product">
+      <div class="section-head">
+        <p class="section-eyebrow">Product</p>
+        <h2>Two surfaces. One system of record.</h2>
+        <p class="section-lead">Customers get a focused checkout. Offices get an operational dashboard. You keep control.</p>
+      </div>
+      <div class="product-split">
+        <article class="product-pane">
+          <p class="pane-label">Customer</p>
+          <h3>Branded Cash App checkout</h3>
+          <p>Mobile-first amount entry, QR / deep link into Cash App, and clear settlement status.</p>
+          <ul>
+            <li>Unique link per office</li>
+            <li>Encrypted checkout session</li>
+            <li>“Secured by Globa Pay” trust footer</li>
+          </ul>
+        </article>
+        <article class="product-pane dark">
+          <p class="pane-label">Office</p>
+          <h3>Live operations dashboard</h3>
+          <p>Today’s revenue, pending invoices, payout availability, and monthly reporting in one place.</p>
+          <ul>
+            <li>Payment history &amp; CSV export</li>
+            <li>Commission-aware available balance</li>
+            <li>Optional Lightning withdrawals</li>
+          </ul>
         </article>
       </div>
     </section>
 
     <section class="section features-section" id="features">
       <div class="section-head">
-        <p class="section-eyebrow">Platform</p>
-        <h2>Everything offices need — controlled by you</h2>
-        <p class="section-lead">Built for operators who run multiple locations and need clear money visibility.</p>
+        <p class="section-eyebrow">Capabilities</p>
+        <h2>Everything offices need — governed by you</h2>
       </div>
       <div class="features">
         <article class="feature-block">
           <h3>Dedicated payment links</h3>
-          <p>Each office gets a unique checkout URL and QR-ready page for walk-in or remote customers.</p>
-        </article>
-        <article class="feature-block">
-          <h3>Live office dashboard</h3>
-          <p>Today’s revenue, pending invoices, payment history, and monthly CSV export in one place.</p>
+          <p>Each office gets a unique checkout URL for walk-in or remote customers.</p>
         </article>
         <article class="feature-block">
           <h3>Commission controls</h3>
-          <p>Set a platform fee per office so available payout balance always reflects your agreement.</p>
+          <p>Set a platform fee per office so available payout balance matches your agreement.</p>
         </article>
         <article class="feature-block">
           <h3>Secure payouts</h3>
-          <p>Enable withdrawals only for approved offices. Over-limit invoices are rejected server-side.</p>
+          <p>Enable withdrawals only for approved offices. Over-limit invoices are rejected.</p>
         </article>
         <article class="feature-block">
           <h3>Admin audit trail</h3>
-          <p>Office creates, fee changes, and staff resets are logged for operational accountability.</p>
+          <p>Office creates, fee changes, and staff resets are logged for accountability.</p>
         </article>
         <article class="feature-block">
           <h3>Production hardening</h3>
-          <p>Rate limits, secure cookies, strong passwords, and wallet liquidity checks before payouts.</p>
+          <p>Rate limits, secure cookies, strong passwords, and wallet liquidity checks.</p>
+        </article>
+        <article class="feature-block">
+          <h3>Always-on sync</h3>
+          <p>Background settlement keeps office dashboards current without manual refresh theater.</p>
         </article>
       </div>
     </section>
@@ -161,20 +223,20 @@
     <section class="section security-section" id="security">
       <div class="security-panel">
         <div>
-          <p class="section-eyebrow">Trust</p>
-          <h2>Designed like financial software — not a landing-page toy.</h2>
+          <p class="section-eyebrow">Trust &amp; controls</p>
+          <h2>Operated like financial software.</h2>
           <p class="section-lead">
-            Sessions are encrypted, admin secrets are validated at boot, and balances come from a ledger — not guesswork.
+            Secrets are validated at boot, sessions are encrypted, and balances come from a ledger — not spreadsheet guesswork.
           </p>
         </div>
         <ul class="security-list">
           <li>
             <strong>Hardened production boot</strong>
-            <span>Weak admin passwords and missing Postgres config are blocked before traffic is served.</span>
+            <span>Weak admin passwords and missing database config are blocked before traffic is served.</span>
           </li>
           <li>
             <strong>Ledger-backed balances</strong>
-            <span>Credits, holds, and payouts are recorded so available funds stay consistent.</span>
+            <span>Payment credits, payout holds, and completed withdrawals stay consistent under concurrency.</span>
           </li>
           <li>
             <strong>Scoped staff access</strong>
@@ -192,7 +254,7 @@
       <div class="faq-list">
         <details class="faq-item" open>
           <summary>How do customers pay?</summary>
-          <p>They open the office payment link, enter an amount, and complete payment in Cash App. The office dashboard updates when the payment settles.</p>
+          <p>They open the office payment link, enter an amount, and complete payment in Cash App. The office dashboard updates when settlement confirms.</p>
         </details>
         <details class="faq-item">
           <summary>Can each office have its own staff login?</summary>
@@ -200,11 +262,11 @@
         </details>
         <details class="faq-item">
           <summary>How do platform fees work?</summary>
-          <p>You set a fee percentage per office. Available payout balance shows the office share after that fee — for example, 15% fee on $100 leaves $85 available.</p>
+          <p>You set a fee percentage per office. Available payout balance shows the office share after that fee — for example, 15% on $100 leaves $85 available.</p>
         </details>
         <details class="faq-item">
           <summary>Are payouts automatic for every office?</summary>
-          <p>No. Payouts are opt-in per office. Only locations you enable can withdraw, and they cannot withdraw more than available balance.</p>
+          <p>No. Payouts are opt-in. Only offices you enable can withdraw, and they cannot withdraw more than available balance.</p>
         </details>
       </div>
     </section>
@@ -224,7 +286,7 @@
             </a>
             <button type="button" class="btn btn-outline" id="copyEmailBtn">Copy Email</button>
           </div>
-          <p class="contact-note">Typical setup: office profile, staff login, payment link, and optional payout access.</p>
+          <p class="contact-note">Typical setup includes office profile, staff login, payment link, and optional payout access.</p>
         </div>
         <div class="contact-card-side">
           <h4>Included with every office</h4>
@@ -239,22 +301,39 @@
     </section>
 
     <footer class="landing-foot">
-      <div class="foot-brand">
-        <div class="brand-mark sm">G</div>
-        <div>
-          <strong>Globa Pay</strong>
-          <span>© <span id="footerYear">2026</span> · Cash App payments · Lightning settlement</span>
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <div class="brand-mark sm">G</div>
+          <div>
+            <strong>Globa Pay</strong>
+            <span>Multi-office Cash App payment infrastructure</span>
+          </div>
+        </div>
+        <div class="foot-col">
+          <h4>Product</h4>
+          <a href="#how">How it works</a>
+          <a href="#product">Checkout &amp; dashboard</a>
+          <a href="#security">Security</a>
+        </div>
+        <div class="foot-col">
+          <h4>Access</h4>
+          <a href="/dashboard">Office portal</a>
+          <a href="/admin">Admin portal</a>
+          <a id="footerEmailLink" href="mailto:payments@globapay.com">Contact</a>
+        </div>
+        <div class="foot-col">
+          <h4>Legal</h4>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
         </div>
       </div>
-      <div class="foot-links">
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
-        <a href="/dashboard">Office Portal</a>
-        <a id="footerEmailLink" href="mailto:payments@globapay.com">Contact</a>
+      <div class="foot-bottom">
+        <span>© <span id="footerYear">2026</span> Globa Pay</span>
+        <span>Cash App payments · Lightning settlement</span>
       </div>
     </footer>
   </div>
 
-  <script src="/landing.js"></script>
+  <script src="/landing.js?v=3"></script>
 </body>
 </html>
