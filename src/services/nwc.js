@@ -407,6 +407,42 @@ async function payBolt11Invoice(invoice) {
 
   const client = createNwcClient();
   try {
+    // Preflight the NWC connection budget so we fail fast with the real number,
+    // instead of Alby Hub's generic "not enough budget" rejection.
+    let budgetError = null;
+    try {
+      const budget = await withTimeout(
+        client.getBudget(),
+        10_000,
+        "budget check timed out"
+      );
+      if (budget && budget.total_budget != null) {
+        const remainingSats = Math.max(
+          0,
+          Math.floor(
+            (Number(budget.total_budget) - Number(budget.used_budget || 0)) / 1000
+          )
+        );
+        let needSats = 0;
+        try {
+          needSats = Math.round(Number(decodeInvoice(bolt11)?.satoshi || 0));
+        } catch {
+          needSats = 0;
+        }
+        if (needSats > 0 && needSats > remainingSats) {
+          const renews = budget.renews_at
+            ? ` Budget renews ${new Date(Number(budget.renews_at) * 1000).toLocaleString()}.`
+            : "";
+          budgetError = new Error(
+            `Alby Hub connection budget too low: ${remainingSats.toLocaleString()} sats remaining but this payout needs ${needSats.toLocaleString()} sats.${renews} Fix: open Alby Hub → Connections → select this app → increase the budget or set it to Unlimited.`
+          );
+        }
+      }
+    } catch {
+      // Wallet may not support get_budget — let payInvoice decide.
+    }
+    if (budgetError) throw budgetError;
+
     const result = await withTimeout(
       client.payInvoice({ invoice: bolt11 }),
       NWC_TIMEOUT_MS,
@@ -425,6 +461,14 @@ async function payBolt11Invoice(invoice) {
           : null,
       provider: "nwc",
     };
+  } catch (err) {
+    const msg = err?.message || "";
+    if (/budget/i.test(msg) && !msg.includes("Alby Hub connection budget too low")) {
+      throw new Error(
+        `Alby Hub NWC connection budget exceeded — the wallet blocked this payout. Fix: open Alby Hub → Connections → select this app → increase the budget or set it to Unlimited, then retry. (${msg})`
+      );
+    }
+    throw err;
   } finally {
     client.close();
   }
