@@ -162,9 +162,44 @@ async function deleteSession(token) {
 }
 
 async function seedAdmin(username, password) {
-  const db = readDb();
-  if (db.users.some((u) => u.role === "admin")) return null;
   if (!username || !password) return null;
+  const db = readDb();
+  const existing = db.users.find((u) => u.role === "admin");
+
+  // Admin credentials always follow ADMIN_USERNAME / ADMIN_PASSWORD env vars,
+  // so changing them takes effect on the next restart.
+  if (existing) {
+    let usernameChanged = existing.username !== username;
+    const passwordChanged = !verifyPassword(password, existing.passwordHash);
+    if (!usernameChanged && !passwordChanged) return null;
+
+    if (usernameChanged) {
+      const clash = db.users.some(
+        (u) => u.id !== existing.id && u.username.toLowerCase() === username.toLowerCase()
+      );
+      if (clash) {
+        console.warn(
+          `⚠ ADMIN_USERNAME "${username}" is already taken by another user — keeping "${existing.username}"`
+        );
+        usernameChanged = false;
+      }
+    }
+    if (!usernameChanged && !passwordChanged) return null;
+
+    const nextUsername = usernameChanged ? username : existing.username;
+    const passwordHash = passwordChanged
+      ? hashPassword(password)
+      : existing.passwordHash;
+    updateDb((d) => {
+      const admin = d.users.find((u) => u.id === existing.id);
+      if (admin) {
+        admin.username = nextUsername;
+        admin.passwordHash = passwordHash;
+      }
+    });
+    console.log("✔ Admin credentials synced from environment variables");
+    return { ...existing, username: nextUsername, passwordHash };
+  }
 
   const admin = {
     id: newId(),

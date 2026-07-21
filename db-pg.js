@@ -411,9 +411,43 @@ async function deleteSession(token) {
 }
 
 async function seedAdmin(username, password) {
-  const { rows } = await pool.query("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
-  if (rows.length) return null;
   if (!username || !password) return null;
+
+  const { rows } = await pool.query(
+    "SELECT * FROM users WHERE role = 'admin' ORDER BY created_at ASC LIMIT 1"
+  );
+
+  // Admin credentials always follow ADMIN_USERNAME / ADMIN_PASSWORD env vars,
+  // so changing them in Railway takes effect on the next deploy.
+  if (rows.length) {
+    const admin = rows[0];
+    let usernameChanged = admin.username !== username;
+    const passwordChanged = !verifyPassword(password, admin.password_hash);
+    if (!usernameChanged && !passwordChanged) return null;
+
+    if (usernameChanged) {
+      const { rows: clash } = await pool.query(
+        "SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1",
+        [username, admin.id]
+      );
+      if (clash.length) {
+        console.warn(
+          `⚠ ADMIN_USERNAME "${username}" is already taken by another user — keeping "${admin.username}"`
+        );
+        usernameChanged = false;
+      }
+    }
+    if (!usernameChanged && !passwordChanged) return null;
+
+    const nextUsername = usernameChanged ? username : admin.username;
+    const passwordHash = passwordChanged ? hashPassword(password) : admin.password_hash;
+    await pool.query(
+      "UPDATE users SET username = $1, password_hash = $2 WHERE id = $3",
+      [nextUsername, passwordHash, admin.id]
+    );
+    console.log("✔ Admin credentials synced from environment variables");
+    return mapUser({ ...admin, username: nextUsername, password_hash: passwordHash });
+  }
 
   const id = crypto.randomUUID();
   const passwordHash = hashPassword(password);
